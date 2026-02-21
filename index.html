@@ -2,1433 +2,1334 @@
 <html lang="en">
 <head>
 <meta charset="utf-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>CRTV Calendar + Calculator</title>
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+<title>CRTV — Calculator + Checklist</title>
 
 <style>
   :root{
     --bg:#191919;
     --text:rgba(255,255,255,.92);
     --muted:rgba(255,255,255,.62);
+    --panelStroke:rgba(255,255,255,.08);
 
-    --strokeA:rgba(255,255,255,.08);
-    --strokeB:rgba(255,255,255,.10);
+    --good:#28E6A5;
+    --bad:#FF4D6D;
+    --warn:#FFC94D;
+    --blue:#3D78FF;
 
-    --glassA:rgba(0,0,0,.18);
-    --glassB:rgba(255,255,255,.05);
-
-    --good:#28E6A5;     /* win */
-    --bad:#FF4D6D;      /* loss */
-    --warn:#FFD34D;     /* missed */
-    --be:#4D9FFF;       /* break-even */
-
-    --radius:18px;
+    --radius:22px;
+    --radiusSm:16px;
     --mono:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,"Liberation Mono","Courier New",monospace;
     --sans:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial;
+
+    --glass: rgba(0,0,0,.18);
+    --glass2: rgba(0,0,0,.10);
+    --stroke: rgba(255,255,255,.10);
+    --stroke2: rgba(255,255,255,.08);
   }
 
   *{ box-sizing:border-box; }
-
   html,body{
-    height:100%;
-    margin:0;
-    background:var(--bg);
+    margin:0;padding:0;height:100%;
+    background:var(--bg)!important;
   }
-
   body{
-    font-family:var(--sans);
     color:var(--text);
-    padding:10px;
+    font-family:var(--sans);
+    padding:10px 10px calc(24px + env(safe-area-inset-bottom));
   }
 
-  .wrap{
-    width:100%;
-    max-width:560px;
-    margin:0 auto;
-  }
+  /* Slightly larger on desktop so Lock + Post fit cleanly, but still compact like your Trading Guide */
+  .wrap{ width:100%; max-width:680px; margin:0 auto; }
 
-  .panel{
-    border:1px solid var(--strokeA);
-    border-radius:var(--radius);
-    overflow:hidden;
-    background:var(--bg);
-  }
-
-  .top{
-    padding:8px 10px;
-    border-bottom:1px solid rgba(255,255,255,.07);
-    display:flex;
-    align-items:center;
-    justify-content:center;
-  }
-
-  .chip{
-    font-family:var(--mono);
-    font-size:11px;
-    color:rgba(255,255,255,.88);
-    padding:6px 12px;
-    border-radius:999px;
-    border:1px solid rgba(255,255,255,.12);
-    background:rgba(0,0,0,.22);
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
-    white-space:nowrap;
-    min-width:170px;
-    text-align:center;
-  }
-
-  .content{
-    padding:10px;
-    display:flex;
-    flex-direction:column;
-    gap:10px;
-  }
-
-  /* ===== session tracker ===== */
-  .tracker{
-    border:1px solid var(--strokeB);
-    background:rgba(0,0,0,.14);
-    border-radius:16px;
-    padding:10px;
+  .appHeader{
     display:flex;
     align-items:center;
     justify-content:space-between;
     gap:10px;
-    min-width:0;
+    margin-bottom:10px;
   }
-  .tLeft{
-    min-width:0;
-  }
-  .tTitle{
-    font-family:var(--mono);
-    font-size:11px;
-    color:rgba(255,255,255,.75);
-    margin-bottom:4px;
+
+  .brand{
+    font-weight:900;
     letter-spacing:.2px;
+    font-size:34px;
+    line-height:1;
   }
-  .tMain{
+
+  .topRight{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    min-width:0;
+  }
+
+  .symbolChip{
+    font-family:var(--mono);
     font-size:12px;
+    padding:10px 12px;
+    border-radius:999px;
+    border:1px solid rgba(255,255,255,.12);
+    background:rgba(0,0,0,.22);
+    display:flex;
+    align-items:center;
+    gap:10px;
+    white-space:nowrap;
+  }
+  .symbolChip select{
+    appearance:none;
+    border:none;
+    outline:none;
+    background:transparent;
+    color:rgba(255,255,255,.92);
+    font-family:var(--mono);
+    font-size:12px;
+    cursor:pointer;
+  }
+  .symbolChip .dot{
+    width:8px;height:8px;border-radius:50%;
+    box-shadow:0 0 0 4px rgba(255,255,255,.08);
+    background:var(--good);
+  }
+  .caret{
+    opacity:.75;
+    font-family:var(--mono);
+    font-size:12px;
+    transform: translateY(-1px);
+  }
+
+  /* Glass panels */
+  .panel{
+    background:rgba(0,0,0,.18);
+    border:1px solid var(--panelStroke);
+    border-radius:var(--radius);
+    overflow:hidden;
+    box-shadow:
+      0 30px 80px rgba(0,0,0,.45),
+      inset 0 1px 0 rgba(255,255,255,.06);
+  }
+
+  .panelInner{ padding:14px; }
+
+  .chipRow{
+    display:flex;
+    justify-content:center;
+    margin-bottom:12px;
+  }
+
+  .timeChip{
+    font-family:var(--mono);
+    font-size:22px;
+    padding:12px 18px;
+    border-radius:999px;
+    border:1px solid rgba(255,255,255,.12);
+    background:rgba(0,0,0,.18);
+    display:flex;
+    align-items:center;
+    gap:12px;
+    letter-spacing:.4px;
+    min-width:210px;
+    justify-content:center;
+  }
+
+  .weekendPill{
+    font-family:var(--mono);
+    font-size:14px;
+    padding:7px 12px;
+    border-radius:999px;
+    border:1px solid rgba(255,255,255,.12);
+    background: rgba(255,201,77,.10);
+    color: rgba(255,201,77,.92);
+  }
+
+  /* Sessions 2x2 */
+  .sessions{
+    display:grid;
+    grid-template-columns: 1fr 1fr;
+    gap:12px;
+  }
+
+  .sessionCard{
+    border-radius:20px;
+    border:1px solid rgba(255,255,255,.10);
+    background:rgba(0,0,0,.14);
+    padding:14px;
+    position:relative;
+    overflow:hidden;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.06);
+    min-height:122px;
+  }
+
+  .sessionTop{
+    display:flex;
+    align-items:flex-start;
+    justify-content:space-between;
+    gap:10px;
+  }
+
+  .sTitle{
+    font-size:22px;
     font-weight:800;
     letter-spacing:.2px;
     white-space:nowrap;
     overflow:hidden;
     text-overflow:ellipsis;
+    max-width:72%;
   }
-  .tPill{
-    display:inline-flex;
-    align-items:center;
-    gap:8px;
-    padding:6px 10px;
-    border-radius:999px;
-    border:1px solid rgba(255,255,255,.12);
-    background:rgba(0,0,0,.22);
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
+  .sTime{
+    margin-top:8px;
     font-family:var(--mono);
-    font-size:11px;
-    white-space:nowrap;
+    font-size:16px;
+    color:rgba(255,255,255,.58);
   }
-  .dot{
-    width:10px;height:10px;border-radius:50%;
-    box-shadow:0 0 0 4px rgba(255,255,255,.06);
-    flex:0 0 auto;
-    background:var(--warn);
-  }
-
-  /* ===== views ===== */
-  .view{
-    border:1px solid var(--strokeB);
-    background:rgba(0,0,0,.12);
-    border-radius:16px;
-    overflow:hidden;
-  }
-  .viewHead{
-    padding:10px;
-    border-bottom:1px solid rgba(255,255,255,.07);
-    display:flex;
-    align-items:center;
-    justify-content:space-between;
-    gap:10px;
-  }
-  .headLeft{
-    display:flex;
-    align-items:center;
-    gap:8px;
-    min-width:0;
-  }
-  .title{
-    font-size:12px;
-    font-weight:850;
-    letter-spacing:.2px;
-    white-space:nowrap;
-    overflow:hidden;
-    text-overflow:ellipsis;
-  }
-  .mini{
+  .sMeta{
+    margin-top:12px;
     font-family:var(--mono);
-    font-size:10px;
-    color:rgba(255,255,255,.70);
-  }
-
-  .btn{
-    font-family:var(--mono);
-    font-size:10px;
-    padding:6px 10px;
-    border-radius:999px;
-    border:1px solid rgba(255,255,255,.12);
-    background:rgba(0,0,0,.18);
-    color:rgba(255,255,255,.78);
-    cursor:pointer;
-  }
-  .btn:active{ transform:scale(.98); }
-
-  .navRow{
-    display:flex;
-    gap:8px;
-    align-items:center;
-  }
-
-  /* ===== calendar ===== */
-  .calWrap{ padding:10px; }
-  .calTop{
-    display:flex;
-    align-items:center;
-    justify-content:space-between;
-    gap:8px;
-    margin-bottom:10px;
-  }
-  .calMonth{
-    font-family:var(--mono);
-    font-size:11px;
-    color:rgba(255,255,255,.86);
-  }
-  .calGrid{
-    display:grid;
-    grid-template-columns: repeat(7, 1fr);
-    gap:8px;
-  }
-  .dow{
-    font-family:var(--mono);
-    font-size:10px;
-    color:rgba(255,255,255,.55);
-    text-align:center;
-    padding:2px 0;
-  }
-  .day{
-    border:1px solid rgba(255,255,255,.10);
-    background:rgba(0,0,0,.10);
-    border-radius:14px;
-    padding:8px 8px 10px;
-    min-height:66px;
-    cursor:pointer;
-    display:flex;
-    flex-direction:column;
-    gap:6px;
-    transition:transform 160ms ease, background 160ms ease;
-  }
-  .day:active{ transform:scale(.99); }
-  .day.muted{
-    opacity:.40;
-  }
-  .dNum{
-    font-family:var(--mono);
-    font-size:10px;
-    color:rgba(255,255,255,.78);
-  }
-  .badges{
-    display:flex;
-    flex-direction:column;
-    gap:4px;
-    min-width:0;
-  }
-  .badge{
-    display:flex;
-    align-items:center;
-    gap:8px;
-    padding:5px 8px;
-    border-radius:999px;
-    border:1px solid rgba(255,255,255,.10);
-    background:rgba(0,0,0,.18);
-    min-width:0;
-  }
-  .bDot{
-    width:8px;height:8px;border-radius:50%;
-    box-shadow:0 0 0 4px rgba(255,255,255,.06);
-    flex:0 0 auto;
-    background:var(--muted);
-  }
-  .bTxt{
-    font-family:var(--mono);
-    font-size:10px;
-    color:rgba(255,255,255,.82);
-    white-space:nowrap;
-    overflow:hidden;
-    text-overflow:ellipsis;
-  }
-
-  .dayList{
-    margin-top:10px;
-    border-top:1px solid rgba(255,255,255,.07);
-    padding-top:10px;
-    display:flex;
-    flex-direction:column;
-    gap:8px;
-  }
-  .tradeRow{
-    border:1px solid rgba(255,255,255,.10);
-    background:rgba(0,0,0,.12);
-    border-radius:14px;
-    padding:10px;
-    display:flex;
-    align-items:center;
-    justify-content:space-between;
-    gap:10px;
-    cursor:pointer;
-  }
-  .tradeRow:active{ transform:scale(.99); }
-  .trLeft{ min-width:0; }
-  .trTop{
-    display:flex;
-    align-items:center;
-    gap:8px;
-    min-width:0;
-  }
-  .pill{
-    display:inline-flex;
-    align-items:center;
-    gap:8px;
-    padding:5px 9px;
-    border-radius:999px;
-    border:1px solid rgba(255,255,255,.12);
-    background:rgba(0,0,0,.18);
-    font-family:var(--mono);
-    font-size:10px;
-    white-space:nowrap;
-  }
-  .trTitle{
-    font-size:12px;
-    font-weight:850;
-    white-space:nowrap;
-    overflow:hidden;
-    text-overflow:ellipsis;
-  }
-  .trSub{
-    margin-top:4px;
-    font-family:var(--mono);
-    font-size:10px;
+    font-size:18px;
     color:rgba(255,255,255,.62);
+    letter-spacing:.2px;
   }
 
-  /* ===== calculator ===== */
-  .calcWrap{ padding:10px; }
-  .grid{
-    display:grid;
-    grid-template-columns: 1fr 1fr;
-    gap:10px;
+  .pill{
+    font-family:var(--mono);
+    font-size:16px;
+    padding:10px 14px;
+    border-radius:999px;
+    border:1px solid rgba(255,255,255,.10);
+    white-space:nowrap;
+    line-height:1;
   }
-  @media (max-width: 430px){
-    .grid{ grid-template-columns: 1fr; }
+  .pillClosed{
+    background:rgba(255,77,109,.12);
+    color:rgba(255,77,109,.92);
+    border-color:rgba(255,77,109,.14);
   }
+  .pillOpen{
+    background:rgba(40,230,165,.12);
+    color:rgba(40,230,165,.92);
+    border-color:rgba(40,230,165,.16);
+  }
+
+  /* Calculator cards */
   .card{
+    border-radius:22px;
     border:1px solid rgba(255,255,255,.10);
     background:rgba(0,0,0,.14);
-    border-radius:16px;
-    padding:12px;
-    min-width:0;
+    padding:14px;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.06);
   }
+  .card + .card{ margin-top:12px; }
+
   .label{
     font-family:var(--mono);
-    font-size:11px;
-    color:rgba(255,255,255,.70);
-    letter-spacing:.2px;
+    font-size:14px;
+    letter-spacing:.6px;
+    color:rgba(255,255,255,.58);
     margin-bottom:8px;
   }
-  .input{
-    width:100%;
-    border-radius:14px;
-    border:1px solid rgba(255,255,255,.12);
-    background:rgba(0,0,0,.22);
-    color:rgba(255,255,255,.92);
-    padding:12px 12px;
-    outline:none;
-    box-shadow: inset 0 0 0 1px rgba(255,255,255,.02);
-    font-family:var(--mono);
-  }
-  .input::placeholder{ color:rgba(255,255,255,.35); }
 
-  .selectWrap{ position:relative; }
-  .selectBtn{
+  .inp{
     width:100%;
+    border-radius:18px;
+    border:1px solid rgba(255,255,255,.10);
+    background:rgba(0,0,0,.16);
+    color:rgba(255,255,255,.92);
+    padding:14px 14px;
+    font-family:var(--mono);
+    font-size:18px;
+    outline:none;
+  }
+
+  .row2{
+    display:grid;
+    grid-template-columns: 1fr 1fr;
+    gap:12px;
+    margin-top:12px;
+  }
+
+  .outRow{
     display:flex;
     align-items:center;
     justify-content:space-between;
-    gap:10px;
-    padding:12px 12px;
-    border-radius:14px;
-    border:1px solid rgba(255,255,255,.12);
-    background:rgba(0,0,0,.22);
-    color:rgba(255,255,255,.92);
-    cursor:pointer;
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
-  }
-  .selectLeft{
-    display:flex;
-    align-items:center;
-    gap:10px;
-    min-width:0;
-  }
-  .selectText{
-    font-family:var(--mono);
-    font-size:13px;
-    white-space:nowrap;
-    overflow:hidden;
-    text-overflow:ellipsis;
-  }
-  .chev{
-    width:10px;height:10px;
-    border-right:2px solid rgba(255,255,255,.70);
-    border-bottom:2px solid rgba(255,255,255,.70);
-    transform:rotate(45deg);
-    transition:transform 180ms ease;
-  }
-  .menu{
-    position:absolute;
-    left:0; right:0;
-    top: calc(100% + 8px);
-    border-radius:16px;
-    border:1px solid rgba(255,255,255,.12);
-    background:rgba(0,0,0,.35);
-    backdrop-filter: blur(14px);
-    -webkit-backdrop-filter: blur(14px);
-    overflow:hidden;
-    transform-origin: top;
-    transform: scaleY(.92);
-    opacity:0;
-    pointer-events:none;
-    transition: opacity 160ms ease, transform 180ms ease;
-    z-index:50;
-  }
-  .menu.open{
-    opacity:1;
-    transform: scaleY(1);
-    pointer-events:auto;
-  }
-  .menuItem{
-    padding:12px 12px;
-    display:flex;
-    align-items:center;
-    gap:10px;
-    cursor:pointer;
-    border-top:1px solid rgba(255,255,255,.06);
-  }
-  .menuItem:first-child{ border-top:none; }
-  .menuItem:hover{ background:rgba(255,255,255,.05); }
-
-  .outGrid{
-    display:grid;
-    grid-template-columns: 1fr 1fr;
-    gap:10px;
+    padding:12px 2px;
+    border-top:1px solid rgba(255,255,255,.08);
     margin-top:10px;
   }
-  @media (max-width: 430px){
-    .outGrid{ grid-template-columns: 1fr; }
-  }
-  .out{
-    border:1px solid rgba(255,255,255,.10);
-    background:rgba(0,0,0,.12);
-    border-radius:16px;
-    padding:12px;
-    min-width:0;
-  }
-  .outTitle{
+
+  .outName{
     font-family:var(--mono);
-    color:rgba(255,255,255,.70);
-    font-size:11px;
-    margin-bottom:6px;
+    font-size:16px;
+    color:rgba(255,255,255,.60);
+    letter-spacing:.6px;
   }
   .outVal{
     font-family:var(--mono);
-    font-size:22px;
-    letter-spacing:.3px;
+    font-size:34px;
+    letter-spacing:.4px;
   }
+  .outBad{ color: rgba(255,77,109,.92); }
+  .outGood{ color: rgba(40,230,165,.92); }
 
-  .status{
-    margin-top:10px;
+  .riskLine{
+    margin-top:12px;
+    border-radius:999px;
     border:1px solid rgba(255,255,255,.10);
     background:rgba(0,0,0,.14);
-    border-radius:16px;
-    padding:12px;
+    padding:12px 14px;
     display:flex;
     align-items:center;
-    gap:10px;
+    gap:12px;
     font-family:var(--mono);
-    color:rgba(255,255,255,.86);
+    font-size:18px;
+    color:rgba(255,255,255,.78);
   }
-  .statusDot{
-    width:12px;height:12px;border-radius:50%;
-    box-shadow:0 0 0 5px rgba(255,255,255,.06);
+  .riskDot{
+    width:16px;height:16px;border-radius:50%;
+    background:rgba(255,255,255,.28);
+    box-shadow:0 0 0 4px rgba(255,255,255,.08);
     flex:0 0 auto;
   }
 
-  /* ===== bottom nav ===== */
-  .bottomNav{
-    border-top:1px solid rgba(255,255,255,.07);
-    padding:8px 10px;
+  .btnRow{
+    margin-top:12px;
     display:flex;
+    justify-content:flex-end;
+  }
+  .btn{
+    font-family:var(--mono);
+    font-size:18px;
+    padding:12px 18px;
+    border-radius:999px;
+    border:1px solid rgba(255,255,255,.12);
+    background:rgba(0,0,0,.18);
+    color:rgba(255,255,255,.78);
+    cursor:pointer;
+  }
+
+  /* Checklist tabs (Lock / Pre / KZ / Post) */
+  .chkTabs{
+    display:grid;
+    grid-template-columns: repeat(4, minmax(0,1fr));
+    gap:12px;
+  }
+  .chkTab{
+    border-radius:20px;
+    border:1px solid rgba(255,255,255,.10);
+    background:rgba(0,0,0,.14);
+    padding:14px;
+    text-align:center;
+    cursor:pointer;
+    user-select:none;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.06);
+  }
+  .chkTab .tDot{
+    width:12px;height:12px;border-radius:50%;
+    margin:0 auto 10px;
+    box-shadow:0 0 0 6px rgba(255,255,255,.08);
+  }
+  .chkTab .tName{
+    font-family:var(--mono);
+    font-size:18px;
+    color:rgba(255,255,255,.86);
+  }
+  .chkTab .tCount{
+    margin-top:10px;
+    display:inline-block;
+    font-family:var(--mono);
+    font-size:18px;
+    padding:10px 14px;
+    border-radius:999px;
+    border:1px solid rgba(255,255,255,.10);
+    background:rgba(0,0,0,.14);
+    min-width:64px;
+  }
+  .chkTab.selected{
+    background:rgba(255,255,255,.05);
+    border-color:rgba(255,255,255,.14);
+  }
+
+  .chkGroup{
+    margin-top:14px;
+    border-radius:26px;
+    border:1px solid rgba(255,255,255,.10);
+    background:rgba(0,0,0,.14);
+    overflow:hidden;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.06);
+  }
+  .chkGroupHead{
+    padding:16px 16px 12px;
+    border-bottom:1px solid rgba(255,255,255,.08);
+    display:flex;
+    align-items:center;
     justify-content:space-between;
     gap:10px;
+  }
+  .chkTitle{
+    font-family:var(--mono);
+    font-size:22px;
+    letter-spacing:.4px;
+    color:rgba(255,255,255,.86);
+  }
+  .chkCountPill{
+    font-family:var(--mono);
+    font-size:18px;
+    padding:10px 14px;
+    border-radius:999px;
+    border:1px solid rgba(255,255,255,.10);
+    background:rgba(0,0,0,.14);
+    min-width:70px;
+    text-align:center;
+    color:rgba(255,255,255,.72);
+  }
+  .chkBody{ padding:14px; }
+  .chkItem{
+    display:flex;
     align-items:center;
+    justify-content:space-between;
+    gap:12px;
+    padding:14px;
+    border-radius:18px;
+    border:1px solid rgba(255,255,255,.08);
+    background:rgba(0,0,0,.12);
+  }
+  .chkItem + .chkItem{ margin-top:12px; }
+  .chkLeft{
+    display:flex;
+    align-items:center;
+    gap:12px;
+    min-width:0;
+  }
+  .box{
+    width:34px;height:34px;
+    border-radius:12px;
+    border:2px solid rgba(255,255,255,.18);
+    background:rgba(0,0,0,.14);
+    display:grid;
+    place-items:center;
+    cursor:pointer;
+    flex:0 0 auto;
+    transition:transform 160ms ease;
+  }
+  .box:active{ transform:scale(.96); }
+  .tick{
+    width:12px;height:8px;
+    border-left:3px solid transparent;
+    border-bottom:3px solid transparent;
+    transform: rotate(-45deg);
+    opacity:0;
+  }
+  .chkText{
+    font-family:var(--sans);
+    font-size:26px;
+    color:rgba(255,255,255,.90);
+    white-space:nowrap;
+    overflow:hidden;
+    text-overflow:ellipsis;
+  }
+  .chkMeta{
+    font-family:var(--mono);
+    font-size:22px;
+    color:rgba(255,255,255,.40);
+    min-width:24px;
+    text-align:right;
+  }
+  .done .box{
+    border-color:rgba(40,230,165,.35);
+    background:rgba(40,230,165,.12);
+    box-shadow:0 0 0 6px rgba(40,230,165,.08);
+  }
+  .done .tick{
+    border-left-color:rgba(40,230,165,.95);
+    border-bottom-color:rgba(40,230,165,.95);
+    opacity:1;
+  }
+  .done .chkText{
+    opacity:.62;
+    text-decoration:line-through;
+    text-decoration-color:rgba(255,255,255,.22);
+  }
+
+  /* Weekend review */
+  .weekCard{
+    margin-top:14px;
+    border-radius:26px;
+    border:1px solid rgba(255,255,255,.10);
+    background:rgba(0,0,0,.14);
+    padding:18px;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.06);
+    text-align:center;
+  }
+  .weekTitle{
+    font-size:44px;
+    font-weight:900;
+    letter-spacing:.2px;
+    margin-top:10px;
+  }
+  .weekSub{
+    margin-top:10px;
+    font-size:28px;
+    color:rgba(255,255,255,.55);
+  }
+  .weekList{
+    margin-top:18px;
+    text-align:left;
+  }
+  .wRow{
+    display:flex;
+    align-items:center;
+    gap:16px;
+    padding:18px;
+    border-radius:22px;
+    border:1px solid rgba(255,255,255,.10);
+    background:rgba(0,0,0,.12);
+  }
+  .wRow + .wRow{ margin-top:14px; }
+  .wDot{
+    width:16px;height:16px;border-radius:50%;
+    box-shadow:0 0 0 6px rgba(255,255,255,.08);
+    flex:0 0 auto;
+  }
+  .wTxt{
+    font-size:28px;
+    color:rgba(255,255,255,.90);
+    letter-spacing:.2px;
+  }
+
+  /* Bottom nav (Calculator / Checklist) */
+  .navBar{
+    position:sticky;
+    bottom:0;
+    margin-top:18px;
+    padding:10px 0 0;
+  }
+  .navWrap{
+    display:grid;
+    grid-template-columns: 1fr 1fr;
+    gap:16px;
+    padding-bottom: env(safe-area-inset-bottom);
   }
   .navBtn{
-    flex:1;
     display:flex;
     align-items:center;
     justify-content:center;
-    gap:8px;
-    padding:10px 10px;
-    border-radius:14px;
-    border:1px solid rgba(255,255,255,.12);
-    background:rgba(0,0,0,.18);
-    color:rgba(255,255,255,.82);
-    font-family:var(--mono);
-    font-size:11px;
+    gap:12px;
+    padding:14px 14px;
+    border-radius:22px;
+    border:1px solid rgba(255,255,255,.10);
+    background:rgba(0,0,0,.14);
     cursor:pointer;
-    min-width:0;
+    user-select:none;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.06);
+  }
+  .navBtn .ico{
+    font-size:22px;
+    opacity:.85;
+  }
+  .navBtn .txt{
+    font-family:var(--sans);
+    font-size:22px;
+    color:rgba(255,255,255,.62);
   }
   .navBtn.active{
     background:rgba(255,255,255,.05);
     border-color:rgba(255,255,255,.14);
   }
-  .ico{
-    width:10px;height:10px;border-radius:3px;
-    border:1px solid rgba(255,255,255,.35);
-    box-shadow:0 0 0 4px rgba(255,255,255,.05);
+  .navBtn.active .txt{
+    color:rgba(120,175,255,.95);
+  }
+  .navBtn.active .ico{
+    color:rgba(120,175,255,.95);
   }
 
-  /* ===== modal (add + view/edit) ===== */
-  .overlay{
-    position:fixed;
-    inset:0;
-    background:rgba(0,0,0,.45);
-    backdrop-filter: blur(8px);
-    -webkit-backdrop-filter: blur(8px);
-    display:none;
-    align-items:center;
-    justify-content:center;
-    padding:12px;
-    z-index:100;
-  }
-  .overlay.open{ display:flex; }
-  .modal{
-    width:100%;
-    max-width:560px;
-    border:1px solid rgba(255,255,255,.12);
-    background:rgba(0,0,0,.35);
-    border-radius:18px;
-    overflow:hidden;
-  }
-  .mHead{
-    padding:10px 12px;
-    border-bottom:1px solid rgba(255,255,255,.07);
-    display:flex;
-    align-items:center;
-    justify-content:space-between;
-    gap:10px;
-  }
-  .mTitle{
-    font-size:12px;
-    font-weight:900;
-    letter-spacing:.2px;
-  }
-  .mBody{ padding:12px; }
-  .mGrid{
-    display:grid;
-    grid-template-columns: 1fr 1fr;
-    gap:10px;
-  }
+  /* Keep mobile sizes sane */
   @media (max-width: 430px){
-    .mGrid{ grid-template-columns: 1fr; }
-  }
-  .mRow{ display:flex; flex-direction:column; gap:8px; }
-  .mActions{
-    padding:10px 12px 12px;
-    border-top:1px solid rgba(255,255,255,.07);
-    display:flex;
-    gap:8px;
-    justify-content:flex-end;
-    flex-wrap:wrap;
-  }
-
-  .selectSmall{
-    width:100%;
-    border-radius:14px;
-    border:1px solid rgba(255,255,255,.12);
-    background:rgba(0,0,0,.22);
-    color:rgba(255,255,255,.92);
-    padding:12px 12px;
-    outline:none;
-    font-family:var(--mono);
-    appearance:none;
-  }
-  .textarea{
-    min-height:90px;
-    resize:vertical;
+    .wrap{ max-width: 100%; }
+    .brand{ font-size:34px; }
+    .chkText{ font-size:20px; }
+    .chkMeta{ font-size:16px; }
+    .timeChip{ font-size:20px; min-width:190px; }
+    .weekTitle{ font-size:36px; }
+    .weekSub{ font-size:20px; }
+    .wTxt{ font-size:20px; }
   }
 </style>
 </head>
 
 <body>
 <div class="wrap">
+
+  <div class="appHeader">
+    <div class="brand">CRTV</div>
+    <div class="topRight">
+      <div class="symbolChip">
+        <span class="dot" id="symDot"></span>
+        <select id="symbolSelect" aria-label="Symbol">
+          <option value="MNQ">MNQ</option>
+          <option value="MES">MES</option>
+          <option value="MGC">MGC</option>
+          <option value="BTCUSD">BTCUSD</option>
+        </select>
+        <span style="opacity:.65;">•</span>
+        <span id="ppUnit">$2/pt</span>
+        <span class="caret">⌄</span>
+      </div>
+    </div>
+  </div>
+
   <div class="panel">
+    <div class="panelInner">
 
-    <div class="top">
-      <div class="chip" id="topChip">CRTV</div>
-    </div>
-
-    <div class="content">
-
-      <!-- session tracker -->
-      <div class="tracker">
-        <div class="tLeft">
-          <div class="tTitle" id="tTime">ET —:—</div>
-          <div class="tMain" id="tSession">Loading…</div>
-        </div>
-        <div class="tPill" id="tPill">
-          <span class="dot" id="tDot"></span>
-          <span id="tPillText">—</span>
+      <!-- ET time chip -->
+      <div class="chipRow">
+        <div class="timeChip" id="timeChip">
+          <span>ET</span>
+          <span id="etClock">--:--</span>
+          <span id="weekendBadge" class="weekendPill" style="display:none;">Weekend</span>
         </div>
       </div>
 
-      <!-- VIEW: Calendar -->
-      <div class="view" id="calendarView">
-        <div class="viewHead">
-          <div class="headLeft">
-            <div class="title">Calendar</div>
-            <div class="mini" id="calHint">Click a day → trades list</div>
-          </div>
-          <div class="navRow">
-            <button class="btn" id="addTradeBtn" type="button">Add Trade</button>
+      <!-- Sessions 2x2 -->
+      <div class="sessions" id="sessionsGrid"></div>
+
+      <!-- Pages -->
+      <div id="pageCalculator" style="margin-top:14px;">
+        <div class="card">
+          <div class="label">RISK ($)</div>
+          <input class="inp" id="riskInp" inputmode="decimal" placeholder="" />
+          <div class="row2">
+            <div>
+              <div class="label" style="margin-top:12px;">STOP (PTS)</div>
+              <input class="inp" id="stopPtsInp" inputmode="decimal" placeholder="" />
+            </div>
+            <div>
+              <div class="label" style="margin-top:12px;">TAKE PROFIT (PTS)</div>
+              <input class="inp" id="tpPtsInp" inputmode="decimal" placeholder="" />
+            </div>
           </div>
         </div>
 
-        <div class="calWrap">
-          <div class="calTop">
-            <button class="btn" id="prevMonth" type="button">Prev</button>
-            <div class="calMonth" id="monthLabel">—</div>
-            <button class="btn" id="nextMonth" type="button">Next</button>
+        <div class="card">
+          <div class="outRow" style="border-top:none;margin-top:0;padding-top:0;">
+            <div class="outName">CONTRACTS</div>
+            <div class="outVal" id="contractsOut" style="color:rgba(255,255,255,.78);">—</div>
           </div>
 
-          <div class="calGrid" id="dowRow"></div>
-          <div class="calGrid" id="calGrid"></div>
+          <div class="outRow">
+            <div class="outName">TOTAL RISK</div>
+            <div class="outVal outBad" id="totalRiskOut">$0.00</div>
+          </div>
 
-          <div class="dayList" id="dayList" style="display:none;"></div>
+          <div class="outRow">
+            <div class="outName">TP PROFIT</div>
+            <div class="outVal outGood" id="tpProfitOut">$0.00</div>
+          </div>
+
+          <div class="riskLine" id="riskTierLine">
+            <div class="riskDot" id="riskTierDot"></div>
+            <div id="riskTierText">—</div>
+          </div>
+
+          <div class="btnRow">
+            <button class="btn" id="resetCalcBtn" type="button">Reset Inputs</button>
+          </div>
         </div>
       </div>
 
-      <!-- VIEW: Calculator -->
-      <div class="view" id="calculatorView" style="display:none;">
-        <div class="viewHead">
-          <div class="headLeft">
-            <div class="title">Calculator</div>
-            <div class="mini">Points for MNQ/MES • 1 decimal BTC</div>
+      <div id="pageChecklist" style="margin-top:14px; display:none;">
+        <!-- weekend content injected here -->
+        <div id="checklistRoot"></div>
+      </div>
+
+      <!-- Bottom nav -->
+      <div class="navBar">
+        <div class="navWrap">
+          <div class="navBtn active" id="navCalc" role="button" tabindex="0">
+            <div class="ico">🧮</div>
+            <div class="txt">Calculator</div>
           </div>
-          <div class="navRow">
-            <button class="btn" id="calcReset" type="button">Reset</button>
+          <div class="navBtn" id="navChk" role="button" tabindex="0">
+            <div class="ico">☑️</div>
+            <div class="txt">Checklist</div>
           </div>
-        </div>
-
-        <div class="calcWrap">
-
-          <div class="grid">
-            <div class="card">
-              <div class="label">SYMBOL</div>
-
-              <div class="selectWrap">
-                <button class="selectBtn" id="selectBtn" type="button">
-                  <div class="selectLeft">
-                    <span class="dot" id="selectDot"></span>
-                    <span class="selectText" id="selectText">MNQ</span>
-                  </div>
-                  <div class="chev" id="selectChev"></div>
-                </button>
-
-                <div class="menu" id="menu">
-                  <div class="menuItem" data-sym="MNQ">
-                    <span class="dot" style="background:var(--good)"></span>
-                    <span class="selectText">MNQ • $2/pt</span>
-                  </div>
-                  <div class="menuItem" data-sym="MES">
-                    <span class="dot" style="background:var(--good)"></span>
-                    <span class="selectText">MES • $5/pt</span>
-                  </div>
-                  <div class="menuItem" data-sym="MGC1">
-                    <span class="dot" style="background:var(--warn)"></span>
-                    <span class="selectText">MGC1! • $10/1.0</span>
-                  </div>
-                  <div class="menuItem" data-sym="BTCUSD">
-                    <span class="dot" style="background:#FF9F43"></span>
-                    <span class="selectText">BTCUSD • spot sizing</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div class="card">
-              <div class="label">$ RISK (PER TRADE)</div>
-              <input class="input" id="riskInput" inputmode="decimal" placeholder="e.g. 100" />
-            </div>
-
-            <div class="card">
-              <div class="label" id="stopLabel">STOP (POINTS)</div>
-              <input class="input" id="stopInput" inputmode="decimal" placeholder="Enter stop" />
-            </div>
-
-            <div class="card">
-              <div class="label" id="tpLabel">TP (POINTS)</div>
-              <input class="input" id="tpInput" inputmode="decimal" placeholder="Enter TP" />
-            </div>
-          </div>
-
-          <div class="outGrid">
-            <div class="out">
-              <div class="outTitle" id="outContractsTitle">CONTRACTS</div>
-              <div class="outVal" id="outContracts">—</div>
-            </div>
-            <div class="out">
-              <div class="outTitle">TOTAL RISK ($)</div>
-              <div class="outVal" id="outRisk">$—</div>
-            </div>
-            <div class="out">
-              <div class="outTitle">TP PROFIT ($)</div>
-              <div class="outVal" id="outProfit">$—</div>
-            </div>
-          </div>
-
-          <div class="status" id="statusBox">
-            <span class="statusDot" id="statusDot" style="background:var(--warn)"></span>
-            <span id="statusText">Enter values to calculate.</span>
-          </div>
-
         </div>
       </div>
 
-    </div>
-
-    <!-- bottom switch -->
-    <div class="bottomNav">
-      <button class="navBtn active" id="navCal" type="button">
-        <span class="ico"></span> Calendar
-      </button>
-      <button class="navBtn" id="navCalc" type="button">
-        <span class="ico"></span> Calculator
-      </button>
-    </div>
-
-  </div>
-</div>
-
-<!-- modal -->
-<div class="overlay" id="overlay">
-  <div class="modal">
-    <div class="mHead">
-      <div class="mTitle" id="mTitle">Add Trade</div>
-      <button class="btn" id="mClose" type="button">Close</button>
-    </div>
-
-    <div class="mBody">
-      <div class="mGrid">
-        <div class="mRow">
-          <div class="label">TRADE NO.</div>
-          <input class="input" id="mTradeNo" placeholder="e.g. Trade 12" />
-        </div>
-
-        <div class="mRow">
-          <div class="label">DATE</div>
-          <input class="input" id="mDate" type="date" />
-        </div>
-
-        <div class="mRow">
-          <div class="label">SYMBOL</div>
-          <select class="selectSmall" id="mSymbol">
-            <option value="MNQ1!">MNQ1!</option>
-            <option value="ES1!">ES1!</option>
-            <option value="SI1!">SI1!</option>
-            <option value="MGC1!">MGC1!</option>
-            <option value="BTCUSD">BTCUSD</option>
-          </select>
-        </div>
-
-        <div class="mRow">
-          <div class="label">RESULT</div>
-          <select class="selectSmall" id="mResult">
-            <option value="win">Win</option>
-            <option value="loss">Loss</option>
-            <option value="be">Break-even</option>
-            <option value="missed">Missed</option>
-          </select>
-        </div>
-
-        <div class="mRow">
-          <div class="label">PROFIT</div>
-          <input class="input" id="mProfit" inputmode="decimal" placeholder="e.g. 150.5" />
-        </div>
-
-        <div class="mRow">
-          <div class="label">SETUP</div>
-          <select class="selectSmall" id="mSetup">
-            <option value="A++ SETUP">A++ SETUP</option>
-            <option value="A+ SETUP">A+ SETUP</option>
-            <option value="A SETUP">A SETUP</option>
-          </select>
-        </div>
-
-        <div class="mRow" style="grid-column:1/-1;">
-          <div class="label">NOTES (only here)</div>
-          <textarea class="input textarea" id="mNotes" placeholder="Notes…"></textarea>
-        </div>
-      </div>
-    </div>
-
-    <div class="mActions">
-      <button class="btn" id="mDelete" type="button" style="display:none; border-color:rgba(255,77,109,.35);">Delete</button>
-      <button class="btn" id="mSave" type="button">Save</button>
     </div>
   </div>
+
 </div>
 
 <script>
-/* =========================
-   TIME / SESSIONS (ET)
-========================= */
+/* =======================
+   TIME + SESSIONS (ET)
+======================= */
 const TZ = "America/Toronto";
 
-// Weekend: Fri 5PM -> Sun 6PM (ET)
+// Weekend market window: Fri 5PM -> Sun 6PM (ET)
 function getPartsInTZ(tz, date=new Date()){
   const parts = new Intl.DateTimeFormat("en-GB", {
-    timeZone: tz, hour12:false, hour:"2-digit", minute:"2-digit"
+    timeZone: tz, hour12:false, hour:"2-digit", minute:"2-digit", second:"2-digit"
   }).formatToParts(date);
-  const get = (type) => parts.find(p => p.type === type)?.value ?? "00";
-  return { hh:get("hour"), mm:get("minute") };
-}
-function minsInTZ(tz){
-  const p = getPartsInTZ(tz);
-  return Number(p.hh)*60 + Number(p.mm);
+  const get = (t)=> parts.find(p=>p.type===t)?.value ?? "00";
+  return { hh:+get("hour"), mm:+get("minute"), ss:+get("second") };
 }
 function weekdayShort(tz, d=new Date()){
   return new Intl.DateTimeFormat("en-US", { timeZone: tz, weekday:"short" }).format(d);
 }
+function datePartsTZ(tz, d=new Date()){
+  const p = new Intl.DateTimeFormat("en-CA", { timeZone: tz, year:"numeric", month:"2-digit", day:"2-digit" })
+    .formatToParts(d);
+  const get = (t)=> p.find(x=>x.type===t)?.value;
+  return { y:+get("year"), m:+get("month"), day:+get("day") };
+}
+function makeDateInTZ(tz, y, m, day, hh, mm){
+  // Create a Date that corresponds to tz-local y-m-d hh:mm by constructing an ISO string,
+  // then adjusting using Intl offsets is hard; instead we brute-force by starting from UTC noon and searching.
+  // For this app, a stable approach:
+  const base = new Date(Date.UTC(y, m-1, day, 12, 0, 0));
+  // scan +/- 24h in minutes to find matching local time
+  for(let i=-720; i<=720; i++){
+    const cand = new Date(base.getTime() + i*60*1000);
+    const lp = new Intl.DateTimeFormat("en-GB", {
+      timeZone: tz, hour12:false, year:"numeric", month:"2-digit", day:"2-digit", hour:"2-digit", minute:"2-digit"
+    }).formatToParts(cand);
+    const get = (t)=> lp.find(x=>x.type===t)?.value;
+    const yy = +get("year"), mo = +get("month"), dd = +get("day"), H = +get("hour"), M = +get("minute");
+    if(yy===y && mo===m && dd===day && H===hh && M===mm) return cand;
+  }
+  return new Date();
+}
+
 function isWeekendMarketClosed(){
   const wd = weekdayShort(TZ);
-  const now = minsInTZ(TZ);
+  const {hh, mm} = getPartsInTZ(TZ);
+  const nowMins = hh*60 + mm;
   const friCutoff = 17*60; // 5:00 PM Friday
   const sunCutoff = 18*60; // 6:00 PM Sunday
-  if(wd === "Fri" && now >= friCutoff) return true;
+  if(wd === "Fri" && nowMins >= friCutoff) return true;
   if(wd === "Sat") return true;
-  if(wd === "Sun" && now < sunCutoff) return true;
+  if(wd === "Sun" && nowMins < sunCutoff) return true;
   return false;
 }
 
-// Sessions (same style as your checklist)
+// Session definitions (ET)
+// Asia Range: 8 PM -> 12 AM (valid start days: Sun,Mon,Tue,Wed,Thu)
+// London Killzone: 2 AM -> 5 AM (valid start days: Mon-Fri)
+// NY Killzone: 9:30 AM -> 11 AM (valid start days: Mon-Fri)
+// Post Trade: 11 AM -> 8 PM (valid start days: Mon-Fri)
+const SESSIONS = [
+  { id:"asia",   name:"Asia Range",   start:{h:20,m:0},  end:{h:0,m:0},   valid:["Sun","Mon","Tue","Wed","Thu"] , color:"var(--bad)"},
+  { id:"london", name:"London Killzone", start:{h:2,m:0}, end:{h:5,m:0}, valid:["Mon","Tue","Wed","Thu","Fri"], color:"var(--bad)"},
+  { id:"ny",     name:"NY Killzone",  start:{h:9,m:30},  end:{h:11,m:0}, valid:["Mon","Tue","Wed","Thu","Fri"], color:"var(--bad)"},
+  { id:"post",   name:"Post Trade",   start:{h:11,m:0},  end:{h:20,m:0}, valid:["Mon","Tue","Wed","Thu","Fri"], color:"var(--good)"}
+];
+
+// Determine if session is "open" now (ET), but if weekend market is closed, force closed.
+function isSessionOpenNow(sess, now=new Date()){
+  if(isWeekendMarketClosed()) return false;
+
+  const wd = weekdayShort(TZ, now);
+  const {hh, mm} = getPartsInTZ(TZ, now);
+  const mins = hh*60 + mm;
+
+  const startM = sess.start.h*60 + sess.start.m;
+  const endM = sess.end.h*60 + sess.end.m;
+
+  // Overnight session (Asia): end is 00:00 next day
+  if(sess.id === "asia"){
+    // open window spans from start on valid day until midnight
+    if(!sess.valid.includes(wd)) return false;
+    return mins >= startM; // since end is 0:00
+  }
+
+  if(!sess.valid.includes(wd)) return false;
+  return mins >= startM && mins < endM;
+}
+
+// Find the next start datetime for a session (ET), respecting weekend rules
+function nextSessionStart(sess){
+  const now = new Date();
+  const wkClosed = isWeekendMarketClosed();
+
+  // During weekend: only Asia shows a countdown; others show "Weekend".
+  if(wkClosed && sess.id !== "asia") return null;
+
+  const baseParts = datePartsTZ(TZ, now);
+  // search next 8 days for the next valid day/time that is in the future
+  for(let add=0; add<8; add++){
+    // build candidate date in ET
+    const candDate = new Date(Date.UTC(baseParts.y, baseParts.m-1, baseParts.day, 12, 0, 0) + add*24*3600*1000);
+    const cp = datePartsTZ(TZ, candDate);
+    const wd = weekdayShort(TZ, candDate);
+
+    if(!sess.valid.includes(wd)) continue;
+
+    const startDt = makeDateInTZ(TZ, cp.y, cp.m, cp.day, sess.start.h, sess.start.m);
+
+    // if start is in the past, continue
+    if(startDt.getTime() <= now.getTime()) continue;
+
+    // If weekend closed: Asia should point to Sunday 8pm (works via valid includes "Sun")
+    return startDt;
+  }
+  return null;
+}
+
+// Format countdown as ONLY two units: (d+h) OR (h+m)
+function fmtCountdown(ms){
+  if(ms <= 0) return "Opens soon";
+  const totalMin = Math.floor(ms / 60000);
+  const days = Math.floor(totalMin / (60*24));
+  const hrs = Math.floor((totalMin - days*24*60) / 60);
+  const mins = totalMin % 60;
+
+  if(days > 0){
+    return `Opens in ${days}d ${hrs}h`;
+  }
+  return `Opens in ${hrs}h ${mins}m`;
+}
+function fmtCountdownClose(ms){
+  if(ms <= 0) return "Closes soon";
+  const totalMin = Math.floor(ms / 60000);
+  const days = Math.floor(totalMin / (60*24));
+  const hrs = Math.floor((totalMin - days*24*60) / 60);
+  const mins = totalMin % 60;
+
+  if(days > 0){
+    return `Closes in ${days}d ${hrs}h`;
+  }
+  return `Closes in ${hrs}h ${mins}m`;
+}
+
+function sessionTimeLabel(sess){
+  const to12 = (h,m)=> {
+    const ampm = h>=12 ? "PM" : "AM";
+    let hh = h%12; if(hh===0) hh=12;
+    const mm = m===0 ? "" : `:${String(m).padStart(2,"0")}`;
+    return `${hh}${mm} ${ampm}`;
+  };
+  if(sess.id==="asia") return `8 PM–12 AM`;
+  if(sess.id==="london") return `2 AM–5 AM`;
+  if(sess.id==="ny") return `9:30 AM–11 AM`;
+  if(sess.id==="post") return `11 AM–8 PM`;
+  return `${to12(sess.start.h,sess.start.m)}–${to12(sess.end.h,sess.end.m)}`;
+}
+
+function renderSessions(){
+  const grid = document.getElementById("sessionsGrid");
+  grid.innerHTML = "";
+
+  const now = new Date();
+  const wk = isWeekendMarketClosed();
+  document.getElementById("weekendBadge").style.display = wk ? "inline-block" : "none";
+
+  for(const s of SESSIONS){
+    const openNow = isSessionOpenNow(s, now);
+
+    const card = document.createElement("div");
+    card.className = "sessionCard";
+
+    // subtle open glow for active
+    if(openNow){
+      card.style.borderColor = "rgba(40,230,165,.18)";
+      card.style.boxShadow = "inset 0 1px 0 rgba(255,255,255,.06), 0 0 0 6px rgba(40,230,165,.06)";
+    }
+
+    const pill = document.createElement("div");
+    pill.className = "pill " + (openNow ? "pillOpen" : "pillClosed");
+    pill.textContent = openNow ? "OPEN" : "CLOSED";
+
+    const t = document.createElement("div");
+    t.className = "sTitle";
+    t.textContent = s.name;
+
+    const time = document.createElement("div");
+    time.className = "sTime";
+    time.textContent = sessionTimeLabel(s);
+
+    const meta = document.createElement("div");
+    meta.className = "sMeta";
+
+    if(wk){
+      if(s.id === "asia"){
+        const ns = nextSessionStart(s);
+        if(ns){
+          meta.textContent = fmtCountdown(ns.getTime() - now.getTime());
+        }else{
+          meta.textContent = "Weekend";
+        }
+      }else{
+        // Fix: during weekend don't show fake “opens in 5h…” for Monday sessions
+        meta.textContent = "Weekend";
+      }
+    }else{
+      if(openNow){
+        // show closes countdown
+        // compute end datetime today in ET (Asia ends at midnight)
+        const dp = datePartsTZ(TZ, now);
+        let endDt;
+        if(s.id === "asia"){
+          // midnight at next day
+          const tomorrow = new Date(now.getTime() + 24*3600*1000);
+          const tp = datePartsTZ(TZ, tomorrow);
+          endDt = makeDateInTZ(TZ, tp.y, tp.m, tp.day, 0, 0);
+        }else{
+          endDt = makeDateInTZ(TZ, dp.y, dp.m, dp.day, s.end.h, s.end.m);
+        }
+        meta.style.color = "rgba(40,230,165,.72)";
+        meta.textContent = fmtCountdownClose(endDt.getTime() - now.getTime());
+      }else{
+        const ns = nextSessionStart(s);
+        meta.textContent = ns ? fmtCountdown(ns.getTime() - now.getTime()) : "—";
+      }
+    }
+
+    const top = document.createElement("div");
+    top.className = "sessionTop";
+    const left = document.createElement("div");
+    left.style.minWidth = "0";
+    left.appendChild(t);
+    left.appendChild(time);
+    top.appendChild(left);
+    top.appendChild(pill);
+
+    card.appendChild(top);
+    card.appendChild(meta);
+
+    grid.appendChild(card);
+  }
+}
+
+function tickClock(){
+  const {hh, mm} = getPartsInTZ(TZ);
+  document.getElementById("etClock").textContent = `${String(hh).padStart(2,"0")}:${String(mm).padStart(2,"0")}`;
+}
+
+/* =======================
+   CHECKLIST (auto sessions + weekend mode + reset at LOCK start)
+======================= */
+
+// Checklist sessions (same logic you used before)
+const CHK_GROUPS = [
+  {
+    id:"lock", short:"Lock", color:"#FF4D6D",
+    title:"NO-TRADE LOCK (POST-KILLZONE)",
+    items:[{id:"lock_on", text:"Trading locked", meta:"1"}]
+  },
+  {
+    id:"premkt", short:"Pre", color:"#3D78FF",
+    title:"NY PRE-MARKET (ICT BIAS)",
+    items:[
+      {id:"bias", text:"Daily bias", meta:"1"},
+      {id:"news", text:"High-impact news", meta:"2"},
+      {id:"asia", text:"Asia + London high/low", meta:"3"},
+      {id:"pd", text:"HTF PD arrays", meta:"4"},
+      {id:"one", text:"One ICT model only", meta:"5"},
+    ]
+  },
+  {
+    id:"killzone", short:"KZ", color:"#28E6A5",
+    title:"NY KILLZONE TRADING",
+    items:[
+      {id:"confirm", text:"Wait for confirmation", meta:"1"},
+      {id:"entry", text:"Execute entry", meta:"2"},
+      {id:"manage", text:"Manage trade", meta:"3"},
+    ]
+  },
+  {
+    id:"post", short:"Post", color:"#FFD34D",
+    title:"ICT POST-TRADE REVIEW",
+    items:[
+      {id:"journal", text:"Journal setup & outcome", meta:"1"},
+      {id:"ss", text:"Chart screenshot", meta:"2"},
+      {id:"emotion", text:"Emotion check", meta:"3"},
+      {id:"rules", text:"Followed ICT rules?", meta:"4"},
+    ]
+  }
+];
+
+// Auto session timing (ET)
 const T = {
-  LOCK_START: 20*60,   // 8:00 PM
-  PRE_OPEN:   8*60+30, // 8:30 AM
-  KZ_OPEN:    9*60+30, // 9:30 AM
-  KZ_CLOSE:   11*60,   // 11:00 AM
-  POST_END:   20*60    // 8:00 PM
+  LOCK_START: 20*60,    // 8:00 PM
+  PRE_OPEN:   8*60+30,  // 8:30 AM
+  KZ_OPEN:    9*60+30,  // 9:30 AM
+  KZ_CLOSE:   11*60,    // 11:00 AM
 };
 
-function getAutoSessionKey(){
-  const now = minsInTZ(TZ);
+function minsNowET(){
+  const p = getPartsInTZ(TZ);
+  return p.hh*60 + p.mm;
+}
+function getAutoChecklistKey(){
+  const now = minsNowET();
+  // lock runs 8pm -> 8:30am
   if(now >= T.LOCK_START || now < T.PRE_OPEN) return "lock";
   if(now >= T.PRE_OPEN && now < T.KZ_OPEN) return "premkt";
   if(now >= T.KZ_OPEN && now < T.KZ_CLOSE) return "killzone";
   return "post";
 }
 
-function fmtETTimeNoSeconds(){
-  return new Intl.DateTimeFormat("en-US", {
-    timeZone: TZ, hour:"numeric", minute:"2-digit", hour12:true
-  }).format(new Date());
-}
-
-const tTime = document.getElementById("tTime");
-const tSession = document.getElementById("tSession");
-const tDot = document.getElementById("tDot");
-const tPillText = document.getElementById("tPillText");
-
-function updateTracker(){
-  tTime.textContent = `ET ${fmtETTimeNoSeconds()}`;
-
-  if(isWeekendMarketClosed()){
-    tSession.textContent = "Weekend • Closed";
-    tDot.style.background = "var(--bad)";
-    tPillText.textContent = "OFF";
-    return;
-  }
-
-  const key = getAutoSessionKey();
-  if(key === "lock"){
-    tSession.textContent = "NO-TRADE LOCK";
-    tDot.style.background = "var(--bad)";
-    tPillText.textContent = "LOCK";
-  }else if(key === "premkt"){
-    tSession.textContent = "NY PRE-MARKET";
-    tDot.style.background = "var(--be)";
-    tPillText.textContent = "PRE";
-  }else if(key === "killzone"){
-    tSession.textContent = "NY KILLZONE";
-    tDot.style.background = "var(--good)";
-    tPillText.textContent = "KZ";
-  }else{
-    tSession.textContent = "POST-TRADE REVIEW";
-    tDot.style.background = "var(--warn)";
-    tPillText.textContent = "POST";
-  }
-}
-
-updateTracker();
-setInterval(updateTracker, 1000 * 10);
-
-/* =========================
-   BOTTOM NAV (Calendar/Calc)
-========================= */
-const calendarView = document.getElementById("calendarView");
-const calculatorView = document.getElementById("calculatorView");
-const navCal = document.getElementById("navCal");
-const navCalc = document.getElementById("navCalc");
-
-function showView(which){
-  const cal = (which === "cal");
-  calendarView.style.display = cal ? "" : "none";
-  calculatorView.style.display = cal ? "none" : "";
-  navCal.classList.toggle("active", cal);
-  navCalc.classList.toggle("active", !cal);
-}
-
-navCal.addEventListener("click", () => showView("cal"));
-navCalc.addEventListener("click", () => showView("calc"));
-
-/* =========================
-   TRADES STORAGE (single-user)
-========================= */
-const LS_KEY = "crtv_trades_v1";
-
-function loadTrades(){
-  try{
-    const raw = localStorage.getItem(LS_KEY);
-    return raw ? JSON.parse(raw) : [];
-  }catch{
-    return [];
-  }
-}
-function saveTrades(trades){
-  localStorage.setItem(LS_KEY, JSON.stringify(trades));
-}
-function uid(){
-  return (crypto?.randomUUID?.() || ("id_" + Math.random().toString(16).slice(2)));
-}
-
-function resultColor(res){
-  if(res === "win") return "var(--good)";
-  if(res === "loss") return "var(--bad)";
-  if(res === "missed") return "var(--warn)";
-  return "var(--be)";
-}
-
-/* =========================
-   CALENDAR
-========================= */
-const dowRow = document.getElementById("dowRow");
-const calGrid = document.getElementById("calGrid");
-const monthLabel = document.getElementById("monthLabel");
-const dayList = document.getElementById("dayList");
-
-const DOW = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
-dowRow.innerHTML = DOW.map(d => `<div class="dow">${d}</div>`).join("");
-
-let viewYear, viewMonth; // month 0-11
-let selectedDayISO = null;
-
-function toISODateLocal(y,m,d){
-  // force yyyy-mm-dd
-  const mm = String(m+1).padStart(2,"0");
-  const dd = String(d).padStart(2,"0");
-  return `${y}-${mm}-${dd}`;
-}
-
-function startOfMonth(y,m){
-  return new Date(y, m, 1);
-}
-function daysInMonth(y,m){
-  return new Date(y, m+1, 0).getDate();
-}
-
-function renderCalendar(){
-  const trades = loadTrades();
-
-  const first = startOfMonth(viewYear, viewMonth);
-  const firstDow = first.getDay(); // 0=Sun
-  const totalDays = daysInMonth(viewYear, viewMonth);
-
-  const label = new Intl.DateTimeFormat("en-US", { month:"long", year:"numeric" })
-    .format(new Date(viewYear, viewMonth, 1));
-  monthLabel.textContent = label;
-
-  // Determine previous month spill
-  const prevMonthDays = daysInMonth(viewYear, viewMonth-1);
-  const cells = [];
-
-  // leading days
-  for(let i=0;i<firstDow;i++){
-    const dayNum = prevMonthDays - firstDow + 1 + i;
-    const d = new Date(viewYear, viewMonth-1, dayNum);
-    cells.push({ y:d.getFullYear(), m:d.getMonth(), d:dayNum, muted:true });
-  }
-
-  // current month days
-  for(let d=1; d<=totalDays; d++){
-    cells.push({ y:viewYear, m:viewMonth, d, muted:false });
-  }
-
-  // trailing to fill 6 rows (42 cells)
-  while(cells.length < 42){
-    const idx = cells.length - (firstDow + totalDays);
-    const dayNum = idx + 1;
-    const d = new Date(viewYear, viewMonth+1, dayNum);
-    cells.push({ y:d.getFullYear(), m:d.getMonth(), d:dayNum, muted:true });
-  }
-
-  calGrid.innerHTML = "";
-  for(const c of cells){
-    const iso = toISODateLocal(c.y,c.m,c.d);
-
-    const dayTrades = trades
-      .filter(t => t.date === iso)
-      .slice(0, 2); // show up to 2 badges
-
-    const badges = dayTrades.map(t => `
-      <div class="badge">
-        <span class="bDot" style="background:${resultColor(t.result)}"></span>
-        <div class="bTxt">${t.symbol}</div>
-      </div>
-    `).join("");
-
-    const el = document.createElement("div");
-    el.className = "day" + (c.muted ? " muted" : "");
-    el.innerHTML = `
-      <div class="dNum">${c.d}</div>
-      <div class="badges">${badges}</div>
-    `;
-
-    el.addEventListener("click", () => {
-      selectedDayISO = iso;
-      renderDayList();
-    });
-
-    calGrid.appendChild(el);
-  }
-
-  renderDayList();
-}
-
-function renderDayList(){
-  const trades = loadTrades();
-  if(!selectedDayISO){
-    dayList.style.display = "none";
-    dayList.innerHTML = "";
-    return;
-  }
-
-  const items = trades
-    .filter(t => t.date === selectedDayISO)
-    .sort((a,b) => (a.created_at||0) - (b.created_at||0));
-
-  const nice = new Intl.DateTimeFormat("en-US", { month:"short", day:"numeric", year:"numeric" })
-    .format(new Date(selectedDayISO + "T00:00:00"));
-
-  dayList.style.display = "";
-  dayList.innerHTML = `
-    <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;">
-      <div class="pill"><span style="opacity:.9;">${nice}</span></div>
-      <button class="btn" id="clearDay" type="button">Clear Day</button>
-    </div>
-    ${items.length ? "" : `<div class="mini" style="padding:4px 2px;">No trades saved for this day.</div>`}
-  `;
-
-  const clearBtn = dayList.querySelector("#clearDay");
-  clearBtn.addEventListener("click", () => {
-    const keep = trades.filter(t => t.date !== selectedDayISO);
-    saveTrades(keep);
-    renderCalendar();
-  });
-
-  for(const t of items){
-    const row = document.createElement("div");
-    row.className = "tradeRow";
-    row.innerHTML = `
-      <div class="trLeft">
-        <div class="trTop">
-          <div class="pill">
-            <span class="bDot" style="background:${resultColor(t.result)}; width:8px;height:8px;border-radius:50%; box-shadow:0 0 0 4px rgba(255,255,255,.06);"></span>
-            <span>${t.symbol}</span>
-          </div>
-          <div class="trTitle">${escapeHtml(t.trade_no || "Trade")}</div>
-        </div>
-        <div class="trSub">Setup: ${escapeHtml(t.setup || "—")} • Profit: ${escapeHtml(String(t.profit ?? "—"))}</div>
-      </div>
-      <div class="pill">Open</div>
-    `;
-    row.addEventListener("click", () => openModalForEdit(t.id));
-    dayList.appendChild(row);
-  }
-}
-
-function escapeHtml(s){
-  return String(s).replace(/[&<>"']/g, (m)=>({
-    "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"
-  }[m]));
-}
-
-const prevMonth = document.getElementById("prevMonth");
-const nextMonth = document.getElementById("nextMonth");
-
-prevMonth.addEventListener("click", () => {
-  viewMonth--;
-  if(viewMonth < 0){ viewMonth = 11; viewYear--; }
-  renderCalendar();
-});
-nextMonth.addEventListener("click", () => {
-  viewMonth++;
-  if(viewMonth > 11){ viewMonth = 0; viewYear++; }
-  renderCalendar();
-});
-
-// init calendar month = today
-(function initCalendar(){
+// Cycle date = date of LOCK start (8pm ET).
+// If current time is before 8pm, cycle belongs to yesterday’s lock.
+function cycleKey(){
   const now = new Date();
-  viewYear = now.getFullYear();
-  viewMonth = now.getMonth();
-  selectedDayISO = toISODateLocal(viewYear, viewMonth, now.getDate());
-  renderCalendar();
-})();
+  const {hh, mm} = getPartsInTZ(TZ, now);
+  const dp = datePartsTZ(TZ, now);
+  const mins = hh*60 + mm;
 
-/* =========================
-   MODAL (ADD / EDIT)
-========================= */
-const overlay = document.getElementById("overlay");
-const mTitle = document.getElementById("mTitle");
-const mClose = document.getElementById("mClose");
-const mSave = document.getElementById("mSave");
-const mDelete = document.getElementById("mDelete");
-
-const mTradeNo = document.getElementById("mTradeNo");
-const mDate = document.getElementById("mDate");
-const mSymbol = document.getElementById("mSymbol");
-const mResult = document.getElementById("mResult");
-const mProfit = document.getElementById("mProfit");
-const mSetup = document.getElementById("mSetup");
-const mNotes = document.getElementById("mNotes");
-
-const addTradeBtn = document.getElementById("addTradeBtn");
-
-let editingId = null;
-
-function openModalForAdd(){
-  editingId = null;
-  mTitle.textContent = "Add Trade";
-  mDelete.style.display = "none";
-
-  mTradeNo.value = "";
-  mSymbol.value = "MNQ1!";
-  mResult.value = "win";
-  mProfit.value = "";
-  mSetup.value = "A++ SETUP";
-  mNotes.value = "";
-
-  // default to selected day if exists
-  const d = selectedDayISO || toISODateLocal(viewYear, viewMonth, 1);
-  mDate.value = d;
-
-  overlay.classList.add("open");
-}
-
-function openModalForEdit(id){
-  const trades = loadTrades();
-  const t = trades.find(x => x.id === id);
-  if(!t) return;
-
-  editingId = id;
-  mTitle.textContent = "Trade Details";
-  mDelete.style.display = "";
-
-  mTradeNo.value = t.trade_no || "";
-  mDate.value = t.date || "";
-  mSymbol.value = t.symbol || "MNQ1!";
-  mResult.value = t.result || "win";
-  mProfit.value = (t.profit ?? "");
-  mSetup.value = t.setup || "A++ SETUP";
-  mNotes.value = t.notes || "";
-
-  overlay.classList.add("open");
-}
-
-function closeModal(){
-  overlay.classList.remove("open");
-}
-
-addTradeBtn.addEventListener("click", openModalForAdd);
-mClose.addEventListener("click", closeModal);
-overlay.addEventListener("click", (e) => {
-  if(e.target === overlay) closeModal();
-});
-
-mSave.addEventListener("click", () => {
-  const trade_no = mTradeNo.value.trim();
-  const date = mDate.value;
-  const symbol = mSymbol.value;
-  const result = mResult.value;
-  const setup = mSetup.value;
-  const notes = mNotes.value.trim();
-
-  if(!trade_no || !date || !result){
-    alert("Please fill: Trade No., Date, Result.");
-    return;
+  let base = {y:dp.y, m:dp.m, day:dp.day};
+  if(mins < T.LOCK_START){
+    // subtract 1 day
+    const tmp = new Date(now.getTime() - 24*3600*1000);
+    const tp = datePartsTZ(TZ, tmp);
+    base = {y:tp.y, m:tp.m, day:tp.day};
   }
+  const y = base.y;
+  const m = String(base.m).padStart(2,"0");
+  const d = String(base.day).padStart(2,"0");
+  return `cycle_${y}-${m}-${d}`;
+}
 
-  const profit = (() => {
-    const v = String(mProfit.value).trim();
-    if(v === "") return null;
-    const n = Number(v.replace(/,/g,""));
-    return Number.isFinite(n) ? n : null;
-  })();
+const LAST_CYCLE_KEY = "crtv_last_cycle";
 
-  const trades = loadTrades();
-  const now = Date.now();
+function safeJSONParse(x, fallback){
+  try{ return JSON.parse(x); }catch{ return fallback; }
+}
+function storeGet(key, fallback){
+  try{
+    const raw = localStorage.getItem(key);
+    return raw ? safeJSONParse(raw, fallback) : fallback;
+  }catch{ return fallback; }
+}
+function storeSet(key, val){
+  try{ localStorage.setItem(key, JSON.stringify(val)); }catch{}
+}
+function storeDel(key){
+  try{ localStorage.removeItem(key); }catch{}
+}
 
-  if(editingId){
-    const idx = trades.findIndex(x => x.id === editingId);
-    if(idx >= 0){
-      trades[idx] = {
-        ...trades[idx],
-        trade_no, date, symbol, result, profit, setup, notes,
-        updated_at: now
-      };
+// One user only: we keep localStorage.
+// Requirement: keep checks in the active sessions, but RESET ALL at start of LOCK (new cycle).
+function ensureCycle(){
+  const ck = cycleKey();
+  const last = storeGet(LAST_CYCLE_KEY, null);
+  if(last !== ck){
+    // reset everything for new cycle
+    for(const g of CHK_GROUPS){
+      storeDel(`${ck}_${g.id}`); // clear if any collision
+    }
+    // also clear old keys of previous cycles? keep minimal: just stamp new cycle
+    storeSet(LAST_CYCLE_KEY, ck);
+    // explicitly clear state for this new cycle
+    for(const g of CHK_GROUPS){
+      storeSet(`${ck}_${g.id}`, {});
     }
   }else{
-    trades.push({
-      id: uid(),
-      trade_no,
-      date,
-      symbol,
-      result,
-      profit,
-      setup,
-      notes,
-      created_at: now,
-      updated_at: now
-    });
+    // ensure exists
+    for(const g of CHK_GROUPS){
+      const k = `${ck}_${g.id}`;
+      const cur = storeGet(k, null);
+      if(cur === null) storeSet(k, {});
+    }
+  }
+  return ck;
+}
+
+let selectedGroupId = null;
+let lastAutoGroupId = null;
+
+function hexToRgba(hex, a){
+  const c = hex.replace("#","").trim();
+  const r = parseInt(c.substring(0,2),16);
+  const g = parseInt(c.substring(2,4),16);
+  const b = parseInt(c.substring(4,6),16);
+  return `rgba(${r},${g},${b},${a})`;
+}
+
+function renderChecklist(){
+  const root = document.getElementById("checklistRoot");
+  root.innerHTML = "";
+
+  const wk = isWeekendMarketClosed();
+
+  if(wk){
+    const w = document.createElement("div");
+    w.className = "weekCard";
+    w.innerHTML = `
+      <div class="weekTitle">Weekend Review</div>
+      <div class="weekSub">Plan + improve for next week</div>
+      <div class="weekList">
+        <div class="wRow">
+          <div class="wDot" style="background: var(--good);"></div>
+          <div class="wTxt">1 best trade + why it worked</div>
+        </div>
+        <div class="wRow">
+          <div class="wDot" style="background: var(--bad);"></div>
+          <div class="wTxt">1 biggest mistake + fix rule</div>
+        </div>
+        <div class="wRow">
+          <div class="wDot" style="background: var(--blue);"></div>
+          <div class="wTxt">Backtest goal (20 charts)</div>
+        </div>
+      </div>
+    `;
+    root.appendChild(w);
+    return;
   }
 
-  saveTrades(trades);
-  selectedDayISO = date;
-  closeModal();
-  renderCalendar();
-});
+  const ck = ensureCycle();
+  const autoId = getAutoChecklistKey();
 
-mDelete.addEventListener("click", () => {
-  if(!editingId) return;
-  if(!confirm("Delete this trade?")) return;
-  const trades = loadTrades().filter(x => x.id !== editingId);
-  saveTrades(trades);
-  editingId = null;
-  closeModal();
-  renderCalendar();
-});
+  if(lastAutoGroupId !== autoId){
+    lastAutoGroupId = autoId;
+    selectedGroupId = autoId;
+  }
+  if(!selectedGroupId) selectedGroupId = autoId;
 
-/* =========================
+  // Tabs
+  const tabs = document.createElement("div");
+  tabs.className = "chkTabs";
+
+  for(const g of CHK_GROUPS){
+    const state = storeGet(`${ck}_${g.id}`, {});
+    const done = g.items.reduce((c,it)=>c + (state[it.id]?1:0), 0);
+    const total = g.items.length;
+
+    const tab = document.createElement("div");
+    tab.className = "chkTab" + (selectedGroupId === g.id ? " selected" : "");
+    tab.innerHTML = `
+      <div class="tDot" style="background:${g.color}; box-shadow:0 0 0 6px ${hexToRgba(g.color,0.12)};"></div>
+      <div class="tName">${g.short}</div>
+      <div class="tCount">${done}/${total}</div>
+    `;
+    tab.addEventListener("click", ()=>{
+      selectedGroupId = g.id;
+      renderChecklist();
+    });
+    tabs.appendChild(tab);
+  }
+
+  root.appendChild(tabs);
+
+  // Group view
+  const g = CHK_GROUPS.find(x=>x.id === selectedGroupId) || CHK_GROUPS[0];
+  const state = storeGet(`${ck}_${g.id}`, {});
+  const doneInGroup = g.items.reduce((c,it)=>c + (state[it.id]?1:0), 0);
+
+  const group = document.createElement("div");
+  group.className = "chkGroup";
+
+  const head = document.createElement("div");
+  head.className = "chkGroupHead";
+  head.innerHTML = `
+    <div class="chkTitle">${g.title}</div>
+    <div class="chkCountPill">${doneInGroup}/${g.items.length}</div>
+  `;
+  group.appendChild(head);
+
+  const body = document.createElement("div");
+  body.className = "chkBody";
+
+  for(const it of g.items){
+    const row = document.createElement("div");
+    row.className = "chkItem" + (state[it.id] ? " done" : "");
+
+    const left = document.createElement("div");
+    left.className = "chkLeft";
+
+    const box = document.createElement("div");
+    box.className = "box";
+    const tick = document.createElement("div");
+    tick.className = "tick";
+    box.appendChild(tick);
+
+    const text = document.createElement("div");
+    text.className = "chkText";
+    text.textContent = it.text;
+
+    left.appendChild(box);
+    left.appendChild(text);
+
+    const meta = document.createElement("div");
+    meta.className = "chkMeta";
+    meta.textContent = it.meta || "";
+
+    row.appendChild(left);
+    row.appendChild(meta);
+
+    box.addEventListener("click", ()=>{
+      const s = storeGet(`${ck}_${g.id}`, {});
+      s[it.id] = !s[it.id];
+      storeSet(`${ck}_${g.id}`, s);
+      renderChecklist();
+    });
+
+    body.appendChild(row);
+  }
+
+  group.appendChild(body);
+  root.appendChild(group);
+
+  // Reset button (only resets current cycle, like your old one)
+  const resetWrap = document.createElement("div");
+  resetWrap.className = "btnRow";
+  resetWrap.style.marginTop = "14px";
+  resetWrap.innerHTML = `<button class="btn" type="button" id="resetChecklistBtn">Reset</button>`;
+  root.appendChild(resetWrap);
+
+  resetWrap.querySelector("#resetChecklistBtn").addEventListener("click", ()=>{
+    for(const gg of CHK_GROUPS){
+      storeSet(`${ck}_${gg.id}`, {});
+    }
+    selectedGroupId = null;
+    renderChecklist();
+  });
+}
+
+/* =======================
+   NAV (Calculator / Checklist)
+======================= */
+const pageCalc = document.getElementById("pageCalculator");
+const pageChk = document.getElementById("pageChecklist");
+const navCalc = document.getElementById("navCalc");
+const navChk = document.getElementById("navChk");
+
+function setPage(p){
+  if(p === "calc"){
+    pageCalc.style.display = "";
+    pageChk.style.display = "none";
+    navCalc.classList.add("active");
+    navChk.classList.remove("active");
+  }else{
+    pageCalc.style.display = "none";
+    pageChk.style.display = "";
+    navCalc.classList.remove("active");
+    navChk.classList.add("active");
+    renderChecklist();
+  }
+}
+navCalc.addEventListener("click", ()=> setPage("calc"));
+navChk.addEventListener("click", ()=> setPage("chk"));
+
+/* =======================
    CALCULATOR (same logic style)
-========================= */
+   - Input: Risk $, Stop pts, TP pts (no entry)
+   - Auto suggests contracts/size
+   - Names stay: MNQ MES MGC BTCUSD
+   - MNQ/MES/MGC: stop/tp units are points
+   - BTCUSD: size can be 1 decimal
+======================= */
 const SYMBOLS = {
-  MNQ:   { name:"MNQ",   pill:"MNQ • $2/pt",    color:"var(--good)", unitValue:2,  contractLabel:"CONTRACTS" },
-  MES:   { name:"MES",   pill:"MES • $5/pt",    color:"var(--good)", unitValue:5,  contractLabel:"CONTRACTS" },
-  MGC1:  { name:"MGC1!", pill:"MGC1! • $10/1.0",color:"var(--warn)", unitValue:10, contractLabel:"CONTRACTS" },
-  BTCUSD:{ name:"BTCUSD",pill:"BTCUSD • spot",  color:"#FF9F43",     unitValue:1,  contractLabel:"BTC SIZE" }
+  MNQ: { pointValue: 2,   unitLabel:"$2/pt",  step:1,   decimals:0 },
+  MES: { pointValue: 5,   unitLabel:"$5/pt",  step:1,   decimals:0 },
+  MGC: { pointValue: 10,  unitLabel:"$10/pt", step:1,   decimals:0 },
+  BTCUSD:{ pointValue: 1, unitLabel:"$1/pt",  step:0.1, decimals:1 } // simplified: treat stop pts as $ move
 };
 
-const selectBtn = document.getElementById("selectBtn");
-const selectDot = document.getElementById("selectDot");
-const selectText = document.getElementById("selectText");
-const selectChev = document.getElementById("selectChev");
-const menu = document.getElementById("menu");
+const symbolSelect = document.getElementById("symbolSelect");
+const ppUnit = document.getElementById("ppUnit");
+const symDot = document.getElementById("symDot");
 
-const riskInput = document.getElementById("riskInput");
-const stopInput = document.getElementById("stopInput");
-const tpInput = document.getElementById("tpInput");
+const riskInp = document.getElementById("riskInp");
+const stopPtsInp = document.getElementById("stopPtsInp");
+const tpPtsInp = document.getElementById("tpPtsInp");
 
-const outContractsTitle = document.getElementById("outContractsTitle");
-const outContracts = document.getElementById("outContracts");
-const outRisk = document.getElementById("outRisk");
-const outProfit = document.getElementById("outProfit");
+const contractsOut = document.getElementById("contractsOut");
+const totalRiskOut = document.getElementById("totalRiskOut");
+const tpProfitOut = document.getElementById("tpProfitOut");
+const riskTierText = document.getElementById("riskTierText");
+const riskTierDot = document.getElementById("riskTierDot");
 
-const statusDot = document.getElementById("statusDot");
-const statusText = document.getElementById("statusText");
-
-const calcReset = document.getElementById("calcReset");
-const stopLabel = document.getElementById("stopLabel");
-const tpLabel = document.getElementById("tpLabel");
-
-let current = "MNQ";
-
-function toNum(v){
-  if(v === "" || v == null) return NaN;
-  const n = Number(String(v).replace(/,/g,"").trim());
-  return Number.isFinite(n) ? n : NaN;
+function n(v){
+  const x = parseFloat(String(v).replace(/,/g,""));
+  return Number.isFinite(x) ? x : 0;
 }
-function money(n){
-  if(!Number.isFinite(n)) return "—";
-  const fixed = Math.round(n * 100) / 100;
-  return fixed.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 });
+function fmtMoney(x){
+  const v = Math.max(0, x);
+  return "$" + v.toFixed(2);
 }
-function setStatus(type){
-  if(type === "good"){ statusDot.style.background = "var(--good)"; }
-  else if(type === "bad"){ statusDot.style.background = "var(--bad)"; }
-  else { statusDot.style.background = "var(--warn)"; }
+function roundToStep(value, step, decimals){
+  if(step <= 0) return value;
+  const r = Math.max(0, Math.floor(value / step) * step);
+  return +r.toFixed(decimals);
 }
-function setRiskTierStatus(totalRisk){
-  // based on REAL total risk (what you will actually place)
-  if(!Number.isFinite(totalRisk)){
-    setStatus("warn");
-    statusText.textContent = "Enter values to calculate.";
-    return;
-  }
-  if(totalRisk >= 50 && totalRisk <= 500){
-    setStatus("good");
-    statusText.textContent = "Risk OK (50–500).";
-    return;
-  }
-  if(totalRisk > 500 && totalRisk <= 1500){
-    setStatus("warn");
-    statusText.textContent = "High risk (500–1500).";
-    return;
-  }
-  if(totalRisk > 1500){
-    setStatus("bad");
-    statusText.textContent = "Too much risk (1500+).";
-    return;
-  }
-  setStatus("warn");
-  statusText.textContent = "Risk is under $50.";
-}
-
-function closeMenu(){
-  menu.classList.remove("open");
-  selectChev.style.transform = "rotate(45deg)";
-}
-
-function applySymbol(sym){
-  current = sym;
-  const S = SYMBOLS[current];
-
-  selectDot.style.background = S.color;
-  selectText.textContent = S.name;
-  outContractsTitle.textContent = S.contractLabel;
-
-  // labels (points vs btc)
-  if(current === "BTCUSD"){
-    stopLabel.textContent = "STOP ($ MOVE)";
-    tpLabel.textContent = "TP ($ MOVE)";
-  }else{
-    stopLabel.textContent = "STOP (POINTS)";
-    tpLabel.textContent = "TP (POINTS)";
-  }
-
-  riskInput.value = "";
-  stopInput.value = "";
-  tpInput.value = "";
-  outContracts.textContent = "—";
-  outRisk.textContent = "$—";
-  outProfit.textContent = "$—";
-  setStatus("warn");
-  statusText.textContent = "Enter values to calculate.";
-  closeMenu();
+function updateSymbolUI(){
+  const s = symbolSelect.value;
+  const cfg = SYMBOLS[s] || SYMBOLS.MNQ;
+  ppUnit.textContent = cfg.unitLabel;
+  symDot.style.background = (s==="BTCUSD") ? "var(--warn)" : "var(--good)";
   calc();
+}
+
+function riskTier(totalRisk){
+  // tiers based on real TOTAL RISK
+  if(totalRisk <= 50) return { txt:"Very low risk (0–50).", dot:"rgba(255,255,255,.28)" };
+  if(totalRisk <= 100) return { txt:"Low risk (51–100).", dot:"rgba(40,230,165,.55)" };
+  if(totalRisk <= 200) return { txt:"Medium risk (101–200).", dot:"rgba(255,201,77,.55)" };
+  return { txt:"High risk (200+).", dot:"rgba(255,77,109,.55)" };
 }
 
 function calc(){
-  const S = SYMBOLS[current];
-  const stop = toNum(stopInput.value);
-  const tp = toNum(tpInput.value);
-  const risk = toNum(riskInput.value);
+  const s = symbolSelect.value;
+  const cfg = SYMBOLS[s] || SYMBOLS.MNQ;
 
-  if(!Number.isFinite(risk) || !Number.isFinite(stop) || stop <= 0){
-    outContracts.textContent = "—";
-    outRisk.textContent = "$—";
-    outProfit.textContent = "$—";
-    setStatus("warn");
-    statusText.textContent = "Enter Risk + Stop (and TP if you want profit).";
-    return;
+  const risk$ = n(riskInp.value);
+  const stopPts = n(stopPtsInp.value);
+  const tpPts = n(tpPtsInp.value);
+
+  // Auto contracts/size:
+  // contracts = risk$ / (stopPts * pointValue)
+  let contracts = 0;
+  if(risk$ > 0 && stopPts > 0 && cfg.pointValue > 0){
+    contracts = risk$ / (stopPts * cfg.pointValue);
   }
 
-  if(current === "BTCUSD"){
-    // spot sizing: size = risk / stopDistance, round DOWN to 1 decimal
-    const rawSize = Math.max(0, risk / stop);
-    const size = Math.floor(rawSize * 10) / 10; // 1 decimal place (down)
-    const totalRisk = size * stop;
-    const profit = (Number.isFinite(tp) && tp > 0) ? (size * tp) : 0;
+  // Round down to allowed step, then format decimals (BTCUSD can be 1 decimal)
+  const rounded = roundToStep(contracts, cfg.step, cfg.decimals);
 
-    outContracts.textContent = Number.isFinite(size) ? size.toFixed(1) : "—";
-    outRisk.textContent = `$${money(totalRisk)}`;
-    outProfit.textContent = `$${money(profit)}`;
+  const totalRisk = (stopPts > 0) ? (rounded * stopPts * cfg.pointValue) : 0;
+  const tpProfit = (tpPts > 0) ? (rounded * tpPts * cfg.pointValue) : 0;
 
-    setRiskTierStatus(totalRisk);
-    return;
-  }
+  contractsOut.textContent = (rounded > 0) ? rounded.toFixed(cfg.decimals) : "—";
+  totalRiskOut.textContent = fmtMoney(totalRisk);
+  tpProfitOut.textContent = fmtMoney(tpProfit);
 
-  // futures-like
-  const perPoint = S.unitValue;
-
-  let contracts = Math.floor(risk / (stop * perPoint));
-  if(!Number.isFinite(contracts) || contracts < 0) contracts = 0;
-  if(contracts > 40) contracts = 40;
-
-  const totalRisk = contracts * stop * perPoint;
-  const profit = (Number.isFinite(tp) && tp > 0) ? (tp * perPoint * contracts) : 0;
-
-  outContracts.textContent = String(contracts);
-  outRisk.textContent = `$${money(totalRisk)}`;
-  outProfit.textContent = `$${money(profit)}`;
-
-  if(contracts === 0){
-    setStatus("bad");
-    statusText.textContent = "Size is 0. Increase risk or reduce stop.";
-    return;
-  }
-
-  setRiskTierStatus(totalRisk);
+  const tier = riskTier(totalRisk);
+  riskTierText.textContent = tier.txt;
+  riskTierDot.style.background = tier.dot;
 }
 
-selectBtn.addEventListener("click", () => {
-  const open = menu.classList.toggle("open");
-  selectChev.style.transform = open ? "rotate(-135deg)" : "rotate(45deg)";
-});
-document.addEventListener("click", (e) => {
-  if(!e.target.closest(".selectWrap")) closeMenu();
-});
-menu.querySelectorAll(".menuItem").forEach(item=>{
-  item.addEventListener("click", () => applySymbol(item.dataset.sym));
-});
-[riskInput, stopInput, tpInput].forEach(inp=>{
-  inp.addEventListener("input", calc);
-});
-calcReset.addEventListener("click", () => {
-  riskInput.value = "";
-  stopInput.value = "";
-  tpInput.value = "";
+symbolSelect.addEventListener("change", updateSymbolUI);
+[riskInp, stopPtsInp, tpPtsInp].forEach(el => el.addEventListener("input", calc));
+
+document.getElementById("resetCalcBtn").addEventListener("click", ()=>{
+  riskInp.value = "";
+  stopPtsInp.value = "";
+  tpPtsInp.value = "";
   calc();
 });
 
-applySymbol("MNQ");
+/* =======================
+   LOOP
+======================= */
+function renderAll(){
+  tickClock();
+  renderSessions();
+  // checklist will render only when opened; but weekend badge needs to reflect, so refresh on session grid anyway
+}
+
+updateSymbolUI();
+renderAll();
+
+// Smooth live updates
+setInterval(renderAll, 1000);
+
+// Also refresh checklist logic when it's open (auto-switch + weekend)
+setInterval(()=>{
+  if(pageChk.style.display !== "none"){
+    renderChecklist();
+  }
+}, 1500);
 </script>
 </body>
 </html>
