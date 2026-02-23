@@ -16,7 +16,14 @@ type Action =
 function loadState(): JournalState {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    if (raw) return JSON.parse(raw) as JournalState;
+    if (raw) {
+      const parsed = JSON.parse(raw) as JournalState;
+      // Migrate: always force theme back to 'default' on load
+      if (parsed.settings && parsed.settings.theme !== 'default') {
+        parsed.settings.theme = 'default';
+      }
+      return parsed;
+    }
   } catch {
     // localStorage unavailable or invalid JSON — start fresh
   }

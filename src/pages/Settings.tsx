@@ -297,7 +297,6 @@ export function Settings() {
 
       <div className="settings-footer">
         <p className="text-dim">CRTV Trading Journal</p>
-        <p className="text-dim">All data stored locally on your device.</p>
       </div>
     </div>
   );
