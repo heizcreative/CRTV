@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { JournalProvider, useJournal } from './store/JournalContext';
 import { Navigation } from './components/Navigation';
 import { Dashboard } from './pages/Dashboard';
@@ -6,7 +6,40 @@ import { Journal } from './pages/Journal';
 import { AddTrade } from './pages/AddTrade';
 import { Analytics } from './pages/Analytics';
 import { Settings } from './pages/Settings';
-import type { AppView } from './types/trade';
+import type { AppView, JournalState } from './types/trade';
+import { loadSyncConfig, loadSyncMeta, pullFromCloud } from './utils/cloudSync';
+
+/** Handles automatic cloud pull: once on mount, then whenever the window regains focus. */
+function SyncEffect() {
+  const { dispatch, suppressNextPush } = useJournal();
+
+  useEffect(() => {
+    async function tryPull() {
+      const config = loadSyncConfig();
+      if (!config?.rtdbUrl || !config?.syncKey) return;
+      const meta = loadSyncMeta();
+      try {
+        const remote = await pullFromCloud(config);
+        if (!remote) return;
+        // Only replace local state when the cloud copy is strictly newer.
+        if (remote.updatedAt > meta.lastPushedAt) {
+          suppressNextPush();
+          dispatch({ type: 'LOAD_STATE', state: remote.state as JournalState });
+        }
+      } catch {
+        // Silently ignore network errors during background pull.
+      }
+    }
+
+    tryPull();
+
+    function onFocus() { tryPull(); }
+    window.addEventListener('focus', onFocus);
+    return () => window.removeEventListener('focus', onFocus);
+  }, [dispatch, suppressNextPush]);
+
+  return null;
+}
 
 function AppInner() {
   const { state } = useJournal();
@@ -45,6 +78,8 @@ function AppInner() {
         <div className="bg-grain" />
         <div className="bg-vignette" />
       </div>
+
+      <SyncEffect />
 
       <main className="app-main">
         {view === 'dashboard' && <Dashboard onNavigate={navigate} />}

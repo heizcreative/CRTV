@@ -1,6 +1,7 @@
-import { createContext, useContext, useReducer, useEffect, type ReactNode } from 'react';
+import { createContext, useContext, useReducer, useEffect, useRef, useCallback, type ReactNode } from 'react';
 import type { Trade, AppSettings, JournalState } from '../types/trade';
 import { defaultSettings } from './seed';
+import { loadSyncConfig, pushToCloud } from '../utils/cloudSync';
 
 const STORAGE_KEY = 'crtv_journal';
 
@@ -9,7 +10,8 @@ type Action =
   | { type: 'UPDATE_TRADE'; trade: Trade }
   | { type: 'DELETE_TRADE'; id: string }
   | { type: 'UPDATE_SETTINGS'; settings: Partial<AppSettings> }
-  | { type: 'RESET_JOURNAL' };
+  | { type: 'RESET_JOURNAL' }
+  | { type: 'LOAD_STATE'; state: JournalState };
 
 function loadState(): JournalState {
   try {
@@ -46,6 +48,8 @@ function reducer(state: JournalState, action: Action): JournalState {
       try { localStorage.removeItem(STORAGE_KEY); } catch { /* ignore */ }
       return { trades: [], settings: defaultSettings };
     }
+    case 'LOAD_STATE':
+      return action.state;
     default:
       return state;
   }
@@ -54,6 +58,9 @@ function reducer(state: JournalState, action: Action): JournalState {
 interface JournalContextValue {
   state: JournalState;
   dispatch: React.Dispatch<Action>;
+  /** Call this before dispatching LOAD_STATE from a cloud pull to suppress the
+   *  resulting auto-push (prevents echoing the pulled data straight back). */
+  suppressNextPush: () => void;
 }
 
 const JournalContext = createContext<JournalContextValue | null>(null);
@@ -61,12 +68,33 @@ const JournalContext = createContext<JournalContextValue | null>(null);
 export function JournalProvider({ children }: { children: ReactNode }) {
   const [state, dispatch] = useReducer(reducer, undefined, loadState);
 
+  // Persist to localStorage on every state change
   useEffect(() => {
     saveState(state);
   }, [state]);
 
+  // Auto-push to cloud when state changes (debounced 2 s).
+  // skipNextPush guards against pushing state that was just pulled from the cloud.
+  const skipNextPush = useRef(false);
+  const suppressNextPush = useCallback(() => { skipNextPush.current = true; }, []);
+
+  useEffect(() => {
+    if (skipNextPush.current) {
+      skipNextPush.current = false;
+      return;
+    }
+    const config = loadSyncConfig();
+    if (!config?.rtdbUrl || !config?.syncKey) return;
+    const timer = setTimeout(() => {
+      pushToCloud(config, state).catch(err => {
+        console.warn('[CRTV] Auto-push failed:', err);
+      });
+    }, 2000);
+    return () => clearTimeout(timer);
+  }, [state]);
+
   return (
-    <JournalContext.Provider value={{ state, dispatch }}>
+    <JournalContext.Provider value={{ state, dispatch, suppressNextPush }}>
       {children}
     </JournalContext.Provider>
   );
