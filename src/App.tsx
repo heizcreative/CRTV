@@ -47,6 +47,11 @@ function AppInner() {
   const [editTradeId, setEditTradeId] = useState<string | undefined>();
   const [viewTradeId, setViewTradeId] = useState<string | undefined>();
 
+  // Sync --glass-blur CSS variable with settings.blurIntensity
+  useEffect(() => {
+    document.documentElement.style.setProperty('--glass-blur', `${state.settings.blurIntensity}px`);
+  }, [state.settings.blurIntensity]);
+
   function navigate(v: AppView, tradeId?: string) {
     if (v === 'add-trade' && tradeId) {
       setEditTradeId(tradeId);
