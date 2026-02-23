@@ -90,12 +90,22 @@ export function Settings() {
   const [syncCfg, setSyncCfg] = useState<SyncConfig>(() => loadSyncConfig() ?? { supabaseUrl: '', anonKey: '', syncKey: '' });
   const [syncStatus, setSyncStatus] = useState<'idle' | 'pushing' | 'pulling' | 'ok' | 'error'>('idle');
   const [syncMsg, setSyncMsg] = useState('');
-  const syncMeta = loadSyncMeta();
+  const [syncMeta, setSyncMeta] = useState(loadSyncMeta);
+
+  // Show the credential input form only when no valid config is saved yet (or user clicks Edit)
+  const [showSetupForm, setShowSetupForm] = useState(() => {
+    const cfg = loadSyncConfig();
+    return !(cfg?.supabaseUrl && cfg?.anonKey && cfg?.syncKey && isValidSupabaseUrl(cfg.supabaseUrl));
+  });
 
   function updateSyncCfg(patch: Partial<SyncConfig>) {
     const next = { ...syncCfg, ...patch };
     setSyncCfg(next);
-    saveSyncConfig(next.supabaseUrl && next.anonKey && next.syncKey ? next : null);
+    // Only persist when all three fields are present; don't wipe a saved config
+    // while the user is mid-edit — they can use Disconnect to fully remove it.
+    if (next.supabaseUrl && next.anonKey && next.syncKey) {
+      saveSyncConfig(next);
+    }
   }
 
   function handleGenKey() {
@@ -108,8 +118,10 @@ export function Settings() {
     setSyncMsg('');
     try {
       await pushToCloud(syncCfg, state);
+      setSyncMeta(loadSyncMeta());
       setSyncStatus('ok');
       setSyncMsg('Pushed successfully.');
+      setShowSetupForm(false);
     } catch (err) {
       setSyncStatus('error');
       setSyncMsg(String(err instanceof Error ? err.message : err));
@@ -139,6 +151,15 @@ export function Settings() {
       setSyncStatus('error');
       setSyncMsg(String(err instanceof Error ? err.message : err));
     }
+  }
+
+  function handleDisconnect() {
+    if (!window.confirm('Remove cloud sync credentials from this device?')) return;
+    saveSyncConfig(null);
+    setSyncCfg({ supabaseUrl: '', anonKey: '', syncKey: '' });
+    setSyncStatus('idle');
+    setSyncMsg('');
+    setShowSetupForm(true);
   }
 
   const syncReady = syncCfg.supabaseUrl.trim() !== '' && syncCfg.anonKey.trim() !== '' && syncCfg.syncKey.trim() !== '' && isValidSupabaseUrl(syncCfg.supabaseUrl);
@@ -219,88 +240,150 @@ export function Settings() {
       {/* Cloud Sync */}
       <GlassCard className="form-section">
         <div className="form-section-title">Cloud Sync</div>
-        <p className="text-dim" style={{ lineHeight: 1.6 }}>
-          Sync your journal across devices via{' '}
-          <a
-            href="https://supabase.com"
-            target="_blank"
-            rel="noreferrer"
-            className="sync-link"
-          >
-            Supabase
-          </a>
-          . Create a free project, run the setup SQL to create the{' '}
-          <code>journals</code> table, then paste your Project URL, anon key,
-          and a sync key below.
-        </p>
 
-        <GlassInput
-          label="Supabase Project URL"
-          placeholder="https://xyzcompany.supabase.co"
-          value={syncCfg.supabaseUrl}
-          onChange={e => updateSyncCfg({ supabaseUrl: e.target.value.trim() })}
-        />
-        {supabaseUrlError && <p className="glass-error">{supabaseUrlError}</p>}
+        {!showSetupForm ? (
+          /* ── Status / Connected view ── */
+          <>
+            <div className="sync-connected-indicator">
+              <span className={`sync-dot${syncStatus === 'pushing' || syncStatus === 'pulling' ? ' sync-dot--syncing' : ' sync-dot--active'}`} />
+              <span>
+                {syncStatus === 'pushing' ? 'Syncing…' : syncStatus === 'pulling' ? 'Pulling…' : 'Sync Active'}
+              </span>
+            </div>
 
-        <GlassInput
-          label="Anon Public Key"
-          placeholder="Paste your anon public key here"
-          value={syncCfg.anonKey}
-          onChange={e => updateSyncCfg({ anonKey: e.target.value.trim() })}
-        />
+            <div className="settings-info-row">
+              <span className="settings-info-label">Endpoint</span>
+              <span className="settings-info-value" style={{ fontSize: 12 }}>
+                {syncCfg.supabaseUrl.replace(/^https:\/\//, '').replace(/\.supabase\.co\/?$/, '…supabase.co')}
+              </span>
+            </div>
 
-        <div className="sync-key-row">
-          <div style={{ flex: 1 }}>
+            {syncMeta.lastPushedAt > 0 && (
+              <div className="settings-info-row">
+                <span className="settings-info-label">Last synced</span>
+                <span className="settings-info-value">{timeAgo(syncMeta.lastPushedAt)}</span>
+              </div>
+            )}
+
+            <div className="settings-actions">
+              <button
+                className="btn-secondary"
+                onClick={handlePush}
+                disabled={syncStatus === 'pushing'}
+              >
+                {syncStatus === 'pushing' ? 'Pushing…' : 'Push to Cloud'}
+              </button>
+              <button
+                className="btn-secondary"
+                onClick={handlePull}
+                disabled={syncStatus === 'pulling'}
+              >
+                {syncStatus === 'pulling' ? 'Pulling…' : 'Pull from Cloud'}
+              </button>
+            </div>
+
+            {syncStatus !== 'idle' && syncMsg && (
+              <p className={`sync-status sync-status--${syncStatus === 'error' ? 'error' : 'ok'}`}>
+                {syncMsg}
+              </p>
+            )}
+
+            <p className="text-dim" style={{ marginTop: 4 }}>
+              Changes auto-push within 2 s. The app auto-pulls when it regains focus
+              and the cloud copy is newer than your local data.
+            </p>
+
+            <div className="sync-manage-row">
+              <button className="btn-link" onClick={() => setShowSetupForm(true)}>Edit configuration</button>
+              <button className="btn-link btn-link--danger" onClick={handleDisconnect}>Disconnect</button>
+            </div>
+          </>
+        ) : (
+          /* ── Setup / Input form view ── */
+          <>
+            <p className="text-dim" style={{ lineHeight: 1.6 }}>
+              Sync your journal across devices via{' '}
+              <a
+                href="https://supabase.com"
+                target="_blank"
+                rel="noreferrer"
+                className="sync-link"
+              >
+                Supabase
+              </a>
+              . Create a free project, run the setup SQL to create the{' '}
+              <code>journals</code> table, then paste your Project URL, anon key,
+              and a sync key below.
+            </p>
+
             <GlassInput
-              label="Sync Key  (shared secret — use the same key on every device)"
-              placeholder="XXXX-XXXX-XXXX"
-              value={syncCfg.syncKey}
-              onChange={e => updateSyncCfg({ syncKey: e.target.value.trim() })}
+              label="Supabase Project URL"
+              placeholder="https://xyzcompany.supabase.co"
+              value={syncCfg.supabaseUrl}
+              onChange={e => updateSyncCfg({ supabaseUrl: e.target.value.trim() })}
             />
-          </div>
-          <button
-            className="btn-secondary sync-gen-btn"
-            onClick={handleGenKey}
-            title="Generate a new random sync key"
-          >
-            Generate
-          </button>
-        </div>
+            {supabaseUrlError && <p className="glass-error">{supabaseUrlError}</p>}
 
-        {syncMeta.lastPushedAt > 0 && (
-          <div className="settings-info-row">
-            <span className="settings-info-label">Last synced</span>
-            <span className="settings-info-value">{timeAgo(syncMeta.lastPushedAt)}</span>
-          </div>
+            <GlassInput
+              label="Anon Public Key"
+              placeholder="Paste your anon public key here"
+              value={syncCfg.anonKey}
+              onChange={e => updateSyncCfg({ anonKey: e.target.value.trim() })}
+            />
+
+            <div className="sync-key-row">
+              <div style={{ flex: 1 }}>
+                <GlassInput
+                  label="Sync Key  (shared secret — use the same key on every device)"
+                  placeholder="XXXX-XXXX-XXXX"
+                  value={syncCfg.syncKey}
+                  onChange={e => updateSyncCfg({ syncKey: e.target.value.trim() })}
+                />
+              </div>
+              <button
+                className="btn-secondary sync-gen-btn"
+                onClick={handleGenKey}
+                title="Generate a new random sync key"
+              >
+                Generate
+              </button>
+            </div>
+
+            {syncMeta.lastPushedAt > 0 && (
+              <div className="settings-info-row">
+                <span className="settings-info-label">Last synced</span>
+                <span className="settings-info-value">{timeAgo(syncMeta.lastPushedAt)}</span>
+              </div>
+            )}
+
+            <div className="settings-actions">
+              <button
+                className="btn-secondary"
+                onClick={handlePush}
+                disabled={!syncReady || syncStatus === 'pushing'}
+              >
+                {syncStatus === 'pushing' ? 'Pushing…' : 'Push to Cloud'}
+              </button>
+              <button
+                className="btn-secondary"
+                onClick={handlePull}
+                disabled={!syncReady || syncStatus === 'pulling'}
+              >
+                {syncStatus === 'pulling' ? 'Pulling…' : 'Pull from Cloud'}
+              </button>
+            </div>
+
+            {syncStatus !== 'idle' && syncMsg && (
+              <p className={`sync-status sync-status--${syncStatus === 'error' ? 'error' : 'ok'}`}>
+                {syncMsg}
+              </p>
+            )}
+
+            {syncCfg.supabaseUrl && syncCfg.anonKey && syncCfg.syncKey && (
+              <button className="btn-link" onClick={() => setShowSetupForm(false)}>← Back to sync status</button>
+            )}
+          </>
         )}
-
-        <div className="settings-actions">
-          <button
-            className="btn-secondary"
-            onClick={handlePush}
-            disabled={!syncReady || syncStatus === 'pushing'}
-          >
-            {syncStatus === 'pushing' ? 'Pushing…' : 'Push to Cloud'}
-          </button>
-          <button
-            className="btn-secondary"
-            onClick={handlePull}
-            disabled={!syncReady || syncStatus === 'pulling'}
-          >
-            {syncStatus === 'pulling' ? 'Pulling…' : 'Pull from Cloud'}
-          </button>
-        </div>
-
-        {syncStatus !== 'idle' && syncMsg && (
-          <p className={`sync-status sync-status--${syncStatus === 'error' ? 'error' : 'ok'}`}>
-            {syncMsg}
-          </p>
-        )}
-
-        <p className="text-dim" style={{ marginTop: 4 }}>
-          Changes auto-push within 2 s. The app auto-pulls when it regains focus
-          and the cloud copy is newer than your local data.
-        </p>
       </GlassCard>
 
       <div className="settings-footer">

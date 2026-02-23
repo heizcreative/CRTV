@@ -1271,6 +1271,68 @@ input[type="range"].glass-slider:focus { outline: none; }
   border: 1px solid rgba(196, 88, 82, 0.16);
 }
 
+/* Sync connected / status view */
+.sync-connected-indicator {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.sync-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.sync-dot--active {
+  background: rgba(100, 178, 120, 0.90);
+  box-shadow: 0 0 6px rgba(100, 178, 120, 0.50);
+  animation: sync-pulse 2.5s ease-in-out infinite;
+}
+
+.sync-dot--syncing {
+  background: rgba(120, 160, 225, 0.90);
+  box-shadow: 0 0 6px rgba(120, 160, 225, 0.50);
+  animation: sync-ping 0.8s ease-in-out infinite;
+}
+
+@keyframes sync-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.45; }
+}
+
+@keyframes sync-ping {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.4); opacity: 0.5; }
+}
+
+.sync-manage-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.btn-link {
+  background: none;
+  border: none;
+  color: rgba(120, 160, 225, 0.78);
+  font-family: inherit;
+  font-size: 13px;
+  cursor: pointer;
+  padding: 0;
+  transition: color 150ms;
+}
+.btn-link:hover { color: rgba(140, 180, 245, 0.95); }
+
+.btn-link--danger {
+  color: rgba(210, 100, 94, 0.75);
+}
+.btn-link--danger:hover { color: rgba(220, 110, 104, 0.95); }
+
 /* Theme buttons */
 .theme-row {
   display: flex;

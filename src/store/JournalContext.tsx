@@ -17,12 +17,7 @@ function loadState(): JournalState {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) {
-      const parsed = JSON.parse(raw) as JournalState;
-      // Migrate: always force theme back to 'default' on load
-      if (parsed.settings && parsed.settings.theme !== 'default') {
-        parsed.settings.theme = 'default';
-      }
-      return parsed;
+      return JSON.parse(raw) as JournalState;
     }
   } catch {
     // localStorage unavailable or invalid JSON — start fresh
@@ -82,10 +77,17 @@ export function JournalProvider({ children }: { children: ReactNode }) {
 
   // Auto-push to cloud when state changes (debounced 2 s).
   // skipNextPush guards against pushing state that was just pulled from the cloud.
+  // hasMounted guards against pushing the initial loaded state on first render,
+  // which could overwrite newer cloud data before the auto-pull completes.
   const skipNextPush = useRef(false);
+  const hasMounted = useRef(false);
   const suppressNextPush = useCallback(() => { skipNextPush.current = true; }, []);
 
   useEffect(() => {
+    if (!hasMounted.current) {
+      hasMounted.current = true;
+      return;
+    }
     if (skipNextPush.current) {
       skipNextPush.current = false;
       return;
