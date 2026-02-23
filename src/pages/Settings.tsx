@@ -2,6 +2,7 @@ import { useJournal } from '../store/JournalContext';
 import { GlassCard } from '../components/GlassCard';
 import { GlassInput, GlassSelect } from '../components/GlassInput';
 import type { AppSettings } from '../types/trade';
+import { clearAllImages } from '../utils/imageStore';
 
 export function Settings() {
   const { state, dispatch } = useJournal();
@@ -22,7 +23,7 @@ export function Settings() {
   }
 
   function exportCSV() {
-    const headers = ['id', 'date', 'symbol', 'direction', 'timeframe', 'entry', 'exit', 'stop', 'takeProfit', 'positionSize', 'riskAmount', 'pnl', 'rMultiple', 'result', 'session', 'setup', 'strategyType', 'followedPlan'];
+    const headers = ['id', 'date', 'symbol', 'direction', 'timeframe', 'session', 'setup', 'strategyType', 'pnl', 'emotion', 'notes'];
     const rows = trades.map(t => headers.map(h => (t as unknown as Record<string, unknown>)[h] ?? '').join(','));
     const csv = [headers.join(','), ...rows].join('\n');
     const blob = new Blob([csv], { type: 'text/csv' });
@@ -34,8 +35,9 @@ export function Settings() {
     URL.revokeObjectURL(url);
   }
 
-  function resetJournal() {
-    if (window.confirm('Reset all trades and settings to default? This cannot be undone.')) {
+  async function resetJournal() {
+    if (window.confirm('Reset all trades and settings? This cannot be undone.')) {
+      await clearAllImages().catch(() => {});
       dispatch({ type: 'RESET_JOURNAL' });
     }
   }
@@ -46,19 +48,9 @@ export function Settings() {
         <h1 className="page-title">Settings</h1>
       </header>
 
-      {/* Trading Defaults */}
+      {/* Appearance */}
       <GlassCard className="form-section">
-        <div className="form-section-title">Trading Defaults</div>
-        <GlassInput
-          label={`Default Risk % — ${settings.defaultRisk}%`}
-          type="range"
-          min="0.1"
-          max="5"
-          step="0.1"
-          value={String(settings.defaultRisk)}
-          onChange={e => update({ defaultRisk: parseFloat(e.target.value) })}
-          className="glass-slider"
-        />
+        <div className="form-section-title">Appearance</div>
         <GlassSelect
           label="Currency"
           value={settings.currency}
@@ -70,11 +62,6 @@ export function Settings() {
             { value: 'JPY', label: 'JPY — Japanese Yen' },
           ]}
         />
-      </GlassCard>
-
-      {/* Appearance */}
-      <GlassCard className="form-section">
-        <div className="form-section-title">Appearance</div>
         <GlassInput
           label={`Glass Blur Intensity — ${settings.blurIntensity}px`}
           type="range"
