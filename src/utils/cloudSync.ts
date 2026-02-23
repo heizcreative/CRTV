@@ -1,27 +1,30 @@
 /**
- * Cloud Sync via Firebase Realtime Database REST API.
- * No SDK dependency — uses plain fetch() calls against the RTDB REST endpoint.
+ * Cloud Sync via Supabase REST API (PostgREST).
+ * No SDK dependency — uses plain fetch() calls against the Supabase REST endpoint.
  *
  * Setup instructions:
- *  1. Go to https://console.firebase.google.com and create a project.
- *  2. Enable Realtime Database (start in test mode or set rules as shown below).
- *  3. Copy the database URL (e.g. https://my-project-default-rtdb.firebaseio.com).
- *  4. Paste the URL and a sync key into Settings → Cloud Sync.
- *
- * Recommended Firebase security rules:
- *  {
- *    "rules": {
- *      "crtv_journals": {
- *        "$syncKey": { ".read": true, ".write": true }
- *      }
- *    }
- *  }
+ *  1. Go to https://supabase.com and create a free project.
+ *  2. In the SQL Editor, run the following to create the journals table:
+ *       create table journals (
+ *         sync_key   text   primary key,
+ *         payload    text   not null,
+ *         updated_at bigint not null
+ *       );
+ *       alter table journals enable row level security;
+ *       -- Anon access is gated by the sync_key column (shared secret). The
+ *       -- generated key has ~60 bits of entropy, making brute-force infeasible.
+ *       create policy "Public access" on journals
+ *         for all using (true) with check (true);
+ *  3. Go to Project Settings → API and copy the Project URL and the anon public key.
+ *  4. Paste them and a sync key into Settings → Cloud Sync.
  */
 
 export interface SyncConfig {
-  /** Firebase Realtime Database URL, e.g. https://my-project-default-rtdb.firebaseio.com */
-  rtdbUrl: string;
-  /** Shared secret used as the document key — treat like a password */
+  /** Supabase project URL, e.g. https://xyzcompany.supabase.co */
+  supabaseUrl: string;
+  /** Supabase anon (public) API key */
+  anonKey: string;
+  /** Shared secret used as the row key — treat like a password */
   syncKey: string;
 }
 
@@ -68,56 +71,58 @@ export function saveSyncMeta(meta: SyncMeta): void {
   } catch { /* ignore */ }
 }
 
-// ─── URL builder ─────────────────────────────────────────────────────────────
+// ─── Supabase REST helpers ────────────────────────────────────────────────────
 
-function buildUrl(config: SyncConfig): string {
-  const base = config.rtdbUrl.replace(/\/$/, '');
-  // Firebase node names cannot contain . # $ [ ] — encode the key
-  const safeKey = encodeURIComponent(config.syncKey);
-  return `${base}/crtv_journals/${safeKey}.json`;
-}
-
-// ─── REST helpers ─────────────────────────────────────────────────────────────
-
-interface CloudDocument {
-  /** JSON-serialised JournalState */
-  payload: string;
-  /** Unix ms timestamp of last write */
-  updatedAt: number;
-}
-
-/** Push local state to the cloud (PUT — full overwrite). */
-export async function pushToCloud(config: SyncConfig, state: unknown): Promise<void> {
-  if (!isValidRtdbUrl(config.rtdbUrl)) throw new Error('Invalid Firebase RTDB URL');
-  const doc: CloudDocument = {
-    payload: JSON.stringify(state),
-    updatedAt: Date.now(),
+function buildHeaders(anonKey: string): Record<string, string> {
+  return {
+    'apikey': anonKey,
+    'Authorization': `Bearer ${anonKey}`,
+    'Content-Type': 'application/json',
   };
-  const res = await fetch(buildUrl(config), {
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(doc),
+}
+
+function buildTableUrl(supabaseUrl: string): string {
+  return `${supabaseUrl.replace(/\/$/, '')}/rest/v1/journals`;
+}
+
+/** Push local state to the cloud (upsert). */
+export async function pushToCloud(config: SyncConfig, state: unknown): Promise<void> {
+  if (!isValidSupabaseUrl(config.supabaseUrl)) throw new Error('Invalid Supabase URL');
+  const updatedAt = Date.now();
+  const body = JSON.stringify({
+    sync_key: config.syncKey,
+    payload: JSON.stringify(state),
+    updated_at: updatedAt,
+  });
+  const res = await fetch(`${buildTableUrl(config.supabaseUrl)}?on_conflict=sync_key`, {
+    method: 'POST',
+    headers: {
+      ...buildHeaders(config.anonKey),
+      'Prefer': 'resolution=merge-duplicates,return=minimal',
+    },
+    body,
   });
   if (!res.ok) {
     const text = await res.text().catch(() => String(res.status));
     throw new Error(text);
   }
-  saveSyncMeta({ lastPushedAt: doc.updatedAt });
+  saveSyncMeta({ lastPushedAt: updatedAt });
 }
 
 /** Pull state from the cloud. Returns null if no cloud data exists yet. */
 export async function pullFromCloud(config: SyncConfig): Promise<{ state: unknown; updatedAt: number } | null> {
-  if (!isValidRtdbUrl(config.rtdbUrl)) throw new Error('Invalid Firebase RTDB URL');
-  const res = await fetch(buildUrl(config));
-  if (res.status === 404) return null;
+  if (!isValidSupabaseUrl(config.supabaseUrl)) throw new Error('Invalid Supabase URL');
+  const url = `${buildTableUrl(config.supabaseUrl)}?sync_key=eq.${encodeURIComponent(config.syncKey)}&select=payload,updated_at`;
+  const res = await fetch(url, { headers: buildHeaders(config.anonKey) });
   if (!res.ok) {
     const text = await res.text().catch(() => String(res.status));
     throw new Error(text);
   }
-  const doc = (await res.json()) as CloudDocument | null;
-  if (!doc) return null;
+  const rows = (await res.json()) as Array<{ payload: string; updated_at: number }>;
+  if (!rows || rows.length === 0) return null;
+  const row = rows[0];
   try {
-    return { state: JSON.parse(doc.payload), updatedAt: doc.updatedAt };
+    return { state: JSON.parse(row.payload), updatedAt: row.updated_at };
   } catch {
     throw new Error('Invalid cloud data format');
   }
@@ -125,10 +130,9 @@ export async function pullFromCloud(config: SyncConfig): Promise<{ state: unknow
 
 // ─── Utilities ────────────────────────────────────────────────────────────────
 
-/** Returns true if the URL looks like a valid Firebase RTDB endpoint. */
-export function isValidRtdbUrl(url: string): boolean {
-  return /^https:\/\/[a-zA-Z0-9-]+(-default-rtdb)?\.firebaseio\.com\/?$/.test(url) ||
-         /^https:\/\/[a-zA-Z0-9-]+(-default-rtdb)?\.firebasedatabase\.app\/?$/.test(url);
+/** Returns true if the URL looks like a valid Supabase project endpoint. */
+export function isValidSupabaseUrl(url: string): boolean {
+  return /^https:\/\/[a-zA-Z0-9_-]+\.supabase\.co\/?$/.test(url);
 }
 
 /** Generates a readable random sync key like "ABCD-EFGH-IJKL".

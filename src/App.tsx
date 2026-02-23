@@ -16,7 +16,7 @@ function SyncEffect() {
   useEffect(() => {
     async function tryPull() {
       const config = loadSyncConfig();
-      if (!config?.rtdbUrl || !config?.syncKey) return;
+      if (!config?.supabaseUrl || !config?.anonKey || !config?.syncKey) return;
       const meta = loadSyncMeta();
       try {
         const remote = await pullFromCloud(config);
