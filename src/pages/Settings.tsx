@@ -11,7 +11,7 @@ import {
   pushToCloud,
   pullFromCloud,
   generateSyncKey,
-  isValidRtdbUrl,
+  isValidSupabaseUrl,
   timeAgo,
   loadSyncMeta,
   type SyncConfig,
@@ -87,7 +87,7 @@ export function Settings() {
   }
 
   // ── Cloud Sync ───────────────────────────────────────────────────────────────
-  const [syncCfg, setSyncCfg] = useState<SyncConfig>(() => loadSyncConfig() ?? { rtdbUrl: '', syncKey: '' });
+  const [syncCfg, setSyncCfg] = useState<SyncConfig>(() => loadSyncConfig() ?? { supabaseUrl: '', anonKey: '', syncKey: '' });
   const [syncStatus, setSyncStatus] = useState<'idle' | 'pushing' | 'pulling' | 'ok' | 'error'>('idle');
   const [syncMsg, setSyncMsg] = useState('');
   const syncMeta = loadSyncMeta();
@@ -95,7 +95,7 @@ export function Settings() {
   function updateSyncCfg(patch: Partial<SyncConfig>) {
     const next = { ...syncCfg, ...patch };
     setSyncCfg(next);
-    saveSyncConfig(next.rtdbUrl && next.syncKey ? next : null);
+    saveSyncConfig(next.supabaseUrl && next.anonKey && next.syncKey ? next : null);
   }
 
   function handleGenKey() {
@@ -103,7 +103,7 @@ export function Settings() {
   }
 
   async function handlePush() {
-    if (!syncCfg.rtdbUrl || !syncCfg.syncKey) return;
+    if (!syncCfg.supabaseUrl || !syncCfg.anonKey || !syncCfg.syncKey) return;
     setSyncStatus('pushing');
     setSyncMsg('');
     try {
@@ -117,7 +117,7 @@ export function Settings() {
   }
 
   async function handlePull() {
-    if (!syncCfg.rtdbUrl || !syncCfg.syncKey) return;
+    if (!syncCfg.supabaseUrl || !syncCfg.anonKey || !syncCfg.syncKey) return;
     setSyncStatus('pulling');
     setSyncMsg('');
     try {
@@ -141,9 +141,9 @@ export function Settings() {
     }
   }
 
-  const syncReady = syncCfg.rtdbUrl.trim() !== '' && syncCfg.syncKey.trim() !== '' && isValidRtdbUrl(syncCfg.rtdbUrl);
-  const rtdbUrlError = syncCfg.rtdbUrl && !isValidRtdbUrl(syncCfg.rtdbUrl)
-    ? 'Enter a valid Firebase RTDB URL, e.g. https://your-project-default-rtdb.firebaseio.com'
+  const syncReady = syncCfg.supabaseUrl.trim() !== '' && syncCfg.anonKey.trim() !== '' && syncCfg.syncKey.trim() !== '' && isValidSupabaseUrl(syncCfg.supabaseUrl);
+  const supabaseUrlError = syncCfg.supabaseUrl && !isValidSupabaseUrl(syncCfg.supabaseUrl)
+    ? 'Enter a valid Supabase project URL, e.g. https://xyzcompany.supabase.co'
     : '';
 
   return (
@@ -222,24 +222,32 @@ export function Settings() {
         <p className="text-dim" style={{ lineHeight: 1.6 }}>
           Sync your journal across devices via{' '}
           <a
-            href="https://console.firebase.google.com"
+            href="https://supabase.com"
             target="_blank"
             rel="noreferrer"
             className="sync-link"
           >
-            Firebase Realtime Database
+            Supabase
           </a>
-          . Create a free project, enable the Realtime Database, then paste the
-          database URL and a sync key below.
+          . Create a free project, run the setup SQL to create the{' '}
+          <code>journals</code> table, then paste your Project URL, anon key,
+          and a sync key below.
         </p>
 
         <GlassInput
-          label="Firebase RTDB URL"
-          placeholder="https://your-project-default-rtdb.firebaseio.com"
-          value={syncCfg.rtdbUrl}
-          onChange={e => updateSyncCfg({ rtdbUrl: e.target.value.trim() })}
+          label="Supabase Project URL"
+          placeholder="https://xyzcompany.supabase.co"
+          value={syncCfg.supabaseUrl}
+          onChange={e => updateSyncCfg({ supabaseUrl: e.target.value.trim() })}
         />
-        {rtdbUrlError && <p className="glass-error">{rtdbUrlError}</p>}
+        {supabaseUrlError && <p className="glass-error">{supabaseUrlError}</p>}
+
+        <GlassInput
+          label="Anon Public Key"
+          placeholder="Paste your anon public key here"
+          value={syncCfg.anonKey}
+          onChange={e => updateSyncCfg({ anonKey: e.target.value.trim() })}
+        />
 
         <div className="sync-key-row">
           <div style={{ flex: 1 }}>

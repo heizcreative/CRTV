@@ -91,7 +91,7 @@ export function JournalProvider({ children }: { children: ReactNode }) {
       return;
     }
     const config = loadSyncConfig();
-    if (!config?.rtdbUrl || !config?.syncKey) return;
+    if (!config?.supabaseUrl || !config?.anonKey || !config?.syncKey) return;
     const timer = setTimeout(() => {
       pushToCloud(config, state).catch(err => {
         console.warn('[CRTV] Auto-push failed:', err);
