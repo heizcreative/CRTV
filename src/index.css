@@ -1256,6 +1256,43 @@ input[type="range"].glass-slider:focus { outline: none; }
   gap: 3px;
 }
 
+/* Sync section */
+.sync-key-row {
+  display: flex;
+  gap: 8px;
+  align-items: flex-end;
+}
+
+.sync-gen-btn {
+  flex-shrink: 0;
+  white-space: nowrap;
+  padding: 10px 14px;
+}
+
+.sync-link {
+  color: rgba(120, 160, 225, 0.80);
+  text-decoration: none;
+  transition: color 150ms;
+}
+.sync-link:hover { color: rgba(140, 180, 245, 0.95); }
+
+.sync-status {
+  font-size: 12px;
+  line-height: 1.5;
+  border-radius: 8px;
+  padding: 6px 10px;
+}
+.sync-status--ok {
+  color: rgba(100, 178, 120, 0.90);
+  background: rgba(100, 178, 120, 0.08);
+  border: 1px solid rgba(100, 178, 120, 0.16);
+}
+.sync-status--error {
+  color: rgba(210, 100, 94, 0.90);
+  background: rgba(196, 88, 82, 0.08);
+  border: 1px solid rgba(196, 88, 82, 0.16);
+}
+
 /* Theme buttons */
 .theme-row {
   display: flex;
