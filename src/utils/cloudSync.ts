@@ -134,10 +134,12 @@ export function isValidRtdbUrl(url: string): boolean {
 /** Generates a readable random sync key like "ABCD-EFGH-IJKL".
  *  Uses crypto.getRandomValues for a cryptographically secure key. */
 export function generateSyncKey(): string {
-  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // omit confusable chars
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // 32 chars (2^5), omit confusable chars
   const bytes = crypto.getRandomValues(new Uint8Array(12));
+  // chars.length is 32 (2^5). Extracting the top 5 bits (byte >> 3) gives a
+  // uniform distribution over [0, 31] without any modulo bias.
   const group = (offset: number) =>
-    Array.from({ length: 4 }, (_, i) => chars[bytes[offset + i] % chars.length]).join('');
+    Array.from({ length: 4 }, (_, i) => chars[bytes[offset + i] >> 3]).join('');
   return `${group(0)}-${group(4)}-${group(8)}`;
 }
 
