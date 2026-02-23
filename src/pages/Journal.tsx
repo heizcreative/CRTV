@@ -1,23 +1,25 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useJournal } from '../store/JournalContext';
 import { GlassCard } from '../components/GlassCard';
 import { StatusBadge, TagBadge } from '../components/StatusBadge';
-import type { Trade, TradeResult, Session } from '../types/trade';
+import type { Trade, Session } from '../types/trade';
 import { Search, SlidersHorizontal, ChevronDown, X } from 'lucide-react';
+import { loadImageUrl } from '../utils/imageStore';
 
 interface JournalProps {
   onEdit: (id: string) => void;
   selectedId?: string;
 }
 
-type SortKey = 'date' | 'pnl' | 'rMultiple';
+type SortKey = 'date' | 'pnl';
+type ResultFilter = 'Win' | 'Loss' | 'BE' | '';
 
 export function Journal({ onEdit, selectedId }: JournalProps) {
   const { state } = useJournal();
   const { trades, settings } = state;
 
   const [search, setSearch] = useState('');
-  const [filterResult, setFilterResult] = useState<TradeResult | ''>('');
+  const [filterResult, setFilterResult] = useState<ResultFilter>('');
   const [filterSession, setFilterSession] = useState<Session | ''>('');
   const [filterSetup, setFilterSetup] = useState('');
   const [sortBy, setSortBy] = useState<SortKey>('date');
@@ -31,7 +33,9 @@ export function Journal({ onEdit, selectedId }: JournalProps) {
     return trades
       .filter(t => {
         if (search && !t.symbol.toLowerCase().includes(search.toLowerCase())) return false;
-        if (filterResult && t.result !== filterResult) return false;
+        if (filterResult === 'Win' && t.pnl <= 0) return false;
+        if (filterResult === 'Loss' && t.pnl >= 0) return false;
+        if (filterResult === 'BE' && t.pnl !== 0) return false;
         if (filterSession && t.session !== filterSession) return false;
         if (filterSetup && t.setup !== filterSetup) return false;
         return true;
@@ -39,8 +43,7 @@ export function Journal({ onEdit, selectedId }: JournalProps) {
       .sort((a, b) => {
         let v = 0;
         if (sortBy === 'date') v = new Date(a.date).getTime() - new Date(b.date).getTime();
-        else if (sortBy === 'pnl') v = a.pnl - b.pnl;
-        else v = a.rMultiple - b.rMultiple;
+        else v = a.pnl - b.pnl;
         return sortDir === 'desc' ? -v : v;
       });
   }, [trades, search, filterResult, filterSession, filterSetup, sortBy, sortDir]);
@@ -81,7 +84,7 @@ export function Journal({ onEdit, selectedId }: JournalProps) {
       {showFilters && (
         <GlassCard padding="16px" className="filter-panel">
           <div className="filter-grid">
-            <select className="glass-input glass-select" value={filterResult} onChange={e => setFilterResult(e.target.value as TradeResult | '')}>
+            <select className="glass-input glass-select" value={filterResult} onChange={e => setFilterResult(e.target.value as ResultFilter)}>
               <option value="">All Results</option>
               <option value="Win">Win</option>
               <option value="Loss">Loss</option>
@@ -107,7 +110,6 @@ export function Journal({ onEdit, selectedId }: JournalProps) {
               <option value="date-asc">Oldest First</option>
               <option value="pnl-desc">Best P/L</option>
               <option value="pnl-asc">Worst P/L</option>
-              <option value="rMultiple-desc">Best R</option>
             </select>
           </div>
         </GlassCard>
@@ -116,7 +118,9 @@ export function Journal({ onEdit, selectedId }: JournalProps) {
       <div className="trade-list">
         {filtered.length === 0 && (
           <GlassCard padding="32px">
-            <p className="text-muted text-center">No trades match your filters.</p>
+            <p className="text-muted text-center">
+              {trades.length === 0 ? 'No trades yet. Log your first trade.' : 'No trades match your filters.'}
+            </p>
           </GlassCard>
         )}
         {filtered.map(trade => (
@@ -144,22 +148,14 @@ function JournalCard({ trade, currency, onClick }: { trade: Trade; currency: str
           <div className={`trade-pnl ${trade.pnl >= 0 ? 'text-win' : 'text-loss'}`}>
             {trade.pnl >= 0 ? '+' : ''}{currency}{Math.abs(trade.pnl).toFixed(2)}
           </div>
-          <div className={`trade-r ${trade.rMultiple >= 0 ? 'text-win' : 'text-loss'}`}>
-            {trade.rMultiple >= 0 ? '+' : ''}{trade.rMultiple.toFixed(2)}R
-          </div>
+          <StatusBadge result={trade.pnl > 0 ? 'Win' : trade.pnl < 0 ? 'Loss' : 'BE'} size="sm" />
         </div>
       </div>
       <div className="journal-card-bottom">
         <StatusBadge direction={trade.direction} />
-        <StatusBadge result={trade.result} />
         <TagBadge label={trade.session} />
         <TagBadge label={trade.setup} />
         <span className="trade-tf">{trade.timeframe}</span>
-      </div>
-      <div className="journal-card-prices">
-        <span className="price-item">Entry <strong>{trade.entry}</strong></span>
-        <span className="price-divider">→</span>
-        <span className="price-item">Exit <strong>{trade.exit}</strong></span>
       </div>
     </GlassCard>
   );
@@ -183,7 +179,7 @@ function TradeDetail({ trade, onBack, onEdit, currency }: { trade: Trade; onBack
         </div>
         <div className="detail-badges">
           <StatusBadge direction={trade.direction} size="md" />
-          <StatusBadge result={trade.result} size="md" />
+          <StatusBadge result={trade.pnl > 0 ? 'Win' : trade.pnl < 0 ? 'Loss' : 'BE'} size="md" />
           <TagBadge label={trade.session} />
           <TagBadge label={trade.timeframe} />
         </div>
@@ -193,42 +189,66 @@ function TradeDetail({ trade, onBack, onEdit, currency }: { trade: Trade; onBack
       <GlassCard>
         <div className="detail-section-title">Trade Details</div>
         <div className="detail-grid">
-          <DetailRow label="Entry" value={String(trade.entry)} />
-          <DetailRow label="Exit" value={String(trade.exit)} />
-          <DetailRow label="Stop" value={String(trade.stop)} />
-          <DetailRow label="Take Profit" value={String(trade.takeProfit)} />
-          <DetailRow label="R Multiple" value={`${trade.rMultiple >= 0 ? '+' : ''}${trade.rMultiple.toFixed(2)}R`} highlight={trade.rMultiple >= 0 ? 'win' : 'loss'} />
-          <DetailRow label="Position Size" value={String(trade.positionSize)} />
-          <DetailRow label="Risk Amount" value={`${currency}${trade.riskAmount.toFixed(2)}`} />
-          {trade.leverage && <DetailRow label="Leverage" value={`${trade.leverage}x`} />}
           <DetailRow label="Setup" value={trade.setup} />
           <DetailRow label="Strategy" value={trade.strategyType} />
+          <DetailRow label="Timeframe" value={trade.timeframe} />
+          <DetailRow label="Session" value={trade.session} />
+          {trade.emotion && <DetailRow label="Emotion" value={trade.emotion} />}
         </div>
       </GlassCard>
 
-      <GlassCard>
-        <div className="detail-section-title">Psychology</div>
-        <div className="detail-grid">
-          <DetailRow label="Followed Plan" value={trade.followedPlan ? 'Yes' : 'No'} highlight={trade.followedPlan ? 'win' : 'loss'} />
-          <DetailRow label="Emotional State" value={trade.emotionalState} />
-          <DetailRow label="Emotion Tag" value={trade.emotionTag} />
-        </div>
-        {trade.mistakes.length > 0 && (
-          <div className="detail-mistakes">
-            <span className="detail-row-label">Mistakes</span>
-            <div className="mistakes-list">
-              {trade.mistakes.map((m, i) => <TagBadge key={i} label={m} />)}
-            </div>
-          </div>
-        )}
-      </GlassCard>
+      {trade.notes && (
+        <GlassCard>
+          <div className="detail-section-title">Notes</div>
+          <div className="reflection-text">{trade.notes}</div>
+        </GlassCard>
+      )}
 
-      <GlassCard>
-        <div className="detail-section-title">Reflection</div>
-        <ReflectionRow label="What went well" value={trade.whatWentWell} />
-        <ReflectionRow label="What went wrong" value={trade.whatWentWrong} />
-        <ReflectionRow label="Improvement" value={trade.improvement} />
-      </GlassCard>
+      {trade.imageUrls && trade.imageUrls.length > 0 && (
+        <GlassCard>
+          <div className="detail-section-title">Screenshots</div>
+          <ImageGallery imageUrls={trade.imageUrls} />
+        </GlassCard>
+      )}
+    </div>
+  );
+}
+
+function ImageGallery({ imageUrls }: { imageUrls: string[] }) {
+  return (
+    <div className="screenshot-thumbs">
+      {imageUrls.map((url, i) => (
+        <AsyncImage key={i} idbKey={url} />
+      ))}
+    </div>
+  );
+}
+
+function AsyncImage({ idbKey }: { idbKey: string }) {
+  const [src, setSrc] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    let objectUrl: string | null = null;
+    loadImageUrl(idbKey).then(url => {
+      if (cancelled) {
+        // Component unmounted before promise resolved — revoke immediately
+        if (url && url !== idbKey) URL.revokeObjectURL(url);
+        return;
+      }
+      objectUrl = url;
+      setSrc(url);
+    });
+    return () => {
+      cancelled = true;
+      if (objectUrl && objectUrl !== idbKey) URL.revokeObjectURL(objectUrl);
+    };
+  }, [idbKey]);
+
+  if (!src) return <div className="screenshot-thumb screenshot-thumb--loading" />;
+  return (
+    <div className="screenshot-thumb screenshot-thumb--full">
+      <img src={src} alt="Trade screenshot" className="thumb-img" />
     </div>
   );
 }
@@ -238,16 +258,6 @@ function DetailRow({ label, value, highlight }: { label: string; value: string; 
     <div className="detail-row">
       <span className="detail-row-label">{label}</span>
       <span className={`detail-row-value ${highlight === 'win' ? 'text-win' : highlight === 'loss' ? 'text-loss' : ''}`}>{value}</span>
-    </div>
-  );
-}
-
-function ReflectionRow({ label, value }: { label: string; value: string }) {
-  if (!value) return null;
-  return (
-    <div className="reflection-row">
-      <div className="detail-row-label">{label}</div>
-      <div className="reflection-text">{value}</div>
     </div>
   );
 }

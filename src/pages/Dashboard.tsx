@@ -3,7 +3,7 @@ import { useJournal } from '../store/JournalContext';
 import { GlassCard } from '../components/GlassCard';
 import { StatusBadge, TagBadge } from '../components/StatusBadge';
 import type { AppView, Trade } from '../types/trade';
-import { TrendingUp, TrendingDown, Target, Award, Brain, Clock } from 'lucide-react';
+import { TrendingUp, TrendingDown, Target, Clock } from 'lucide-react';
 
 interface DashboardProps {
   onNavigate: (view: AppView, tradeId?: string) => void;
@@ -25,17 +25,13 @@ export function Dashboard({ onNavigate }: DashboardProps) {
 
     const todayTrades = trades.filter(t => new Date(t.date).toDateString() === today);
     const weekTrades = trades.filter(t => new Date(t.date) >= weekAgo);
-    const allWins = trades.filter(t => t.result === 'Win');
+    const wins = trades.filter(t => t.pnl > 0);
 
     const todayPL = todayTrades.reduce((s, t) => s + t.pnl, 0);
     const weekPL = weekTrades.reduce((s, t) => s + t.pnl, 0);
-    const winRate = trades.length ? (allWins.length / trades.length) * 100 : 0;
-    const avgR = trades.length ? trades.reduce((s, t) => s + t.rMultiple, 0) / trades.length : 0;
-    const disciplineScore = trades.length
-      ? (trades.filter(t => t.followedPlan).length / trades.length) * 100
-      : 0;
+    const winRate = trades.length ? (wins.length / trades.length) * 100 : 0;
 
-    return { todayPL, weekPL, winRate, avgR, disciplineScore, todayTrades };
+    return { todayPL, weekPL, winRate, todayTrades };
   }, [trades]);
 
   const recentTrades = trades.slice(0, 5);
@@ -82,32 +78,13 @@ export function Dashboard({ onNavigate }: DashboardProps) {
       </div>
 
       {/* Secondary metrics */}
-      <div className="metrics-grid-4">
+      <div className="metrics-grid">
         <GlassCard padding="16px">
           <div className="metric-icon-row">
             <Target size={14} className="icon-muted" />
             <span className="metric-label-sm">Win Rate</span>
           </div>
           <div className="metric-value-md">{stats.winRate.toFixed(1)}%</div>
-        </GlassCard>
-
-        <GlassCard padding="16px">
-          <div className="metric-icon-row">
-            <Award size={14} className="icon-muted" />
-            <span className="metric-label-sm">Avg R</span>
-          </div>
-          <div className={`metric-value-md ${stats.avgR >= 0 ? 'text-win' : 'text-loss'}`}>
-            {stats.avgR >= 0 ? '+' : ''}{stats.avgR.toFixed(2)}R
-          </div>
-        </GlassCard>
-
-        <GlassCard padding="16px">
-          <div className="metric-icon-row">
-            <Brain size={14} className="icon-muted" />
-            <span className="metric-label-sm">Discipline</span>
-          </div>
-          <div className="metric-value-md">{stats.disciplineScore.toFixed(0)}%</div>
-          <DisciplineBar score={stats.disciplineScore} />
         </GlassCard>
 
         <GlassCard padding="16px">
@@ -127,8 +104,8 @@ export function Dashboard({ onNavigate }: DashboardProps) {
         </div>
         <div className="trade-list">
           {recentTrades.length === 0 && (
-            <GlassCard padding="24px">
-              <p className="text-muted text-center">No trades yet. Add your first trade.</p>
+            <GlassCard padding="32px">
+              <p className="text-muted text-center">No trades yet. Log your first trade.</p>
             </GlassCard>
           )}
           {recentTrades.map(trade => (
@@ -140,18 +117,8 @@ export function Dashboard({ onNavigate }: DashboardProps) {
   );
 }
 
-function DisciplineBar({ score }: { score: number }) {
-  return (
-    <div className="discipline-bar-track">
-      <div
-        className="discipline-bar-fill"
-        style={{ width: `${Math.max(0, Math.min(100, score))}%` }}
-      />
-    </div>
-  );
-}
-
 function TradeRow({ trade, onClick, currency }: { trade: Trade; onClick: () => void; currency: string }) {
+  const cur = currency === 'USD' ? '$' : currency === 'EUR' ? '€' : currency === 'GBP' ? '£' : currency;
   return (
     <GlassCard hover padding="14px 18px" onClick={onClick}>
       <div className="trade-row">
@@ -165,12 +132,9 @@ function TradeRow({ trade, onClick, currency }: { trade: Trade; onClick: () => v
         </div>
         <div className="trade-row-right">
           <div className={`trade-pnl ${trade.pnl >= 0 ? 'text-win' : 'text-loss'}`}>
-            {trade.pnl >= 0 ? '+' : ''}{currency === 'USD' ? '$' : currency}{Math.abs(trade.pnl).toFixed(2)}
+            {trade.pnl >= 0 ? '+' : ''}{cur}{Math.abs(trade.pnl).toFixed(2)}
           </div>
-          <div className={`trade-r ${trade.rMultiple >= 0 ? 'text-win' : 'text-loss'}`}>
-            {trade.rMultiple >= 0 ? '+' : ''}{trade.rMultiple.toFixed(2)}R
-          </div>
-          <StatusBadge result={trade.result} size="sm" />
+          <StatusBadge result={trade.pnl > 0 ? 'Win' : trade.pnl < 0 ? 'Loss' : 'BE'} size="sm" />
         </div>
       </div>
     </GlassCard>

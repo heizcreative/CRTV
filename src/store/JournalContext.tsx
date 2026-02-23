@@ -1,6 +1,6 @@
 import { createContext, useContext, useReducer, useEffect, type ReactNode } from 'react';
 import type { Trade, AppSettings, JournalState } from '../types/trade';
-import { generateSeedTrades, defaultSettings } from './seed';
+import { defaultSettings } from './seed';
 
 const STORAGE_KEY = 'crtv_journal';
 
@@ -16,9 +16,9 @@ function loadState(): JournalState {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) return JSON.parse(raw) as JournalState;
   } catch {
-    // localStorage unavailable or invalid JSON — fall through to seed data
+    // localStorage unavailable or invalid JSON — start fresh
   }
-  return { trades: generateSeedTrades(), settings: defaultSettings };
+  return { trades: [], settings: defaultSettings };
 }
 
 function saveState(state: JournalState): void {
@@ -42,8 +42,10 @@ function reducer(state: JournalState, action: Action): JournalState {
       return { ...state, trades: state.trades.filter(t => t.id !== action.id) };
     case 'UPDATE_SETTINGS':
       return { ...state, settings: { ...state.settings, ...action.settings } };
-    case 'RESET_JOURNAL':
-      return { trades: generateSeedTrades(), settings: defaultSettings };
+    case 'RESET_JOURNAL': {
+      try { localStorage.removeItem(STORAGE_KEY); } catch { /* ignore */ }
+      return { trades: [], settings: defaultSettings };
+    }
     default:
       return state;
   }
