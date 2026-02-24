@@ -32,6 +32,15 @@ export interface SyncConfig {
 const SYNC_CONFIG_KEY = 'crtv_sync_config';
 const SYNC_META_KEY = 'crtv_sync_meta';
 
+/** Built-in credentials — pre-configured for personal use.
+ *  These are used the first time the app loads (before any user input)
+ *  and are automatically persisted to localStorage so sync works immediately. */
+const DEFAULT_SYNC_CONFIG: SyncConfig = {
+  supabaseUrl: 'https://snolxaadnbqgqhycgbeg.supabase.co',
+  anonKey: 'sb_publishable_l8as_h0nObdKx5FLXydPig_XkvqMhMt',
+  syncKey: 'CRTV-MY-JOURNAL',
+};
+
 interface SyncMeta {
   /** Unix ms — when we last successfully pushed to the cloud */
   lastPushedAt: number;
@@ -44,7 +53,10 @@ export function loadSyncConfig(): SyncConfig | null {
     const raw = localStorage.getItem(SYNC_CONFIG_KEY);
     if (raw) return JSON.parse(raw) as SyncConfig;
   } catch { /* ignore */ }
-  return null;
+  // No saved config found — seed localStorage with built-in credentials so the
+  // user never has to re-enter them.
+  saveSyncConfig(DEFAULT_SYNC_CONFIG);
+  return DEFAULT_SYNC_CONFIG;
 }
 
 export function saveSyncConfig(config: SyncConfig | null): void {
